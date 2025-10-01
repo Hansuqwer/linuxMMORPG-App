@@ -1,15 +1,34 @@
 import sys
 import logging
 from pathlib import Path
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QLabel, QMessageBox, QScrollArea, QTextEdit,
-                             QGroupBox, QComboBox, QProgressBar, QTabWidget, QListWidget,
-                             QListWidgetItem, QSplitter)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
+from typing import Optional
+
+from PyQt6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QLabel,
+    QMessageBox,
+    QListWidget,
+    QListWidgetItem,
+    QSplitter,
+    QLineEdit,
+    QComboBox,
+    QFormLayout,
+    QPlainTextEdit,
+    QProgressBar,
+    QTabWidget,
+    QFrame
+)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QUrl
+from PyQt6.QtGui import QFont, QDesktopServices
 
 from games_db import get_all_games, get_game_by_id
 from game_installer import GameInstaller
+
 
 LOG_FILE = Path("logs/launcher.log")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -26,176 +45,323 @@ class InstallThread(QThread):
     progress = pyqtSignal(str)
     finished = pyqtSignal(bool)
 
-    def __init__(self, installer, game_id, game_data):
+    def __init__(self, installer: GameInstaller, game_id: str, game_data: dict):
         super().__init__()
         self.installer = installer
         self.game_id = game_id
         self.game_data = game_data
 
     def run(self):
-        def progress_callback(msg):
+        def progress_callback(msg: str):
             self.progress.emit(msg)
 
         result = self.installer.install_game(self.game_id, self.game_data, progress_callback)
         self.finished.emit(result)
 
 
-class GameCard(QGroupBox):
-    """Widget representing a single game"""
-    def __init__(self, game_id, game_data, installer, parent=None):
+class GameDetailPanel(QWidget):
+    """Detailed view for selected game with expert controls."""
+
+    install_requested = pyqtSignal(str)
+    uninstall_requested = pyqtSignal(str)
+    launch_requested = pyqtSignal(str)
+    open_site_requested = pyqtSignal(str)
+    open_folder_requested = pyqtSignal(str)
+
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.game_id = game_id
-        self.game_data = game_data
-        self.installer = installer
-        self.is_installed = installer.is_installed(game_id)
+        self.current_game_id: Optional[str] = None
+        self.current_game_data: Optional[dict] = None
+        self._setup_ui()
 
-        self.setTitle(game_data['name'])
-        self.setup_ui()
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
 
-    def setup_ui(self):
-        layout = QVBoxLayout()
+        self.placeholder = QLabel("Select a game from the list to inspect details.")
+        self.placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.placeholder.setStyleSheet("color: #7a8193; font-size: 15px;")
+        layout.addWidget(self.placeholder)
 
-        # Game info
-        info_label = QLabel(f"<b>Genre:</b> {self.game_data['genre']}<br>"
-                           f"<b>Server:</b> {self.game_data['server']}<br>"
-                           f"<b>Population:</b> {self.game_data['population']}<br>"
-                           f"<b>Native:</b> {'Yes' if self.game_data['native'] else 'No (via Wine/Proton)'}")
-        info_label.setWordWrap(True)
-        layout.addWidget(info_label)
+        self.content = QWidget()
+        self.content.hide()
+        content_layout = QVBoxLayout(self.content)
+        content_layout.setSpacing(14)
 
-        # Description
-        desc_label = QLabel(self.game_data['description'])
-        desc_label.setWordWrap(True)
-        desc_label.setStyleSheet("color: gray; font-size: 11px;")
-        layout.addWidget(desc_label)
+        # Header with title and status badge
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(12)
 
-        # Buttons
-        button_layout = QHBoxLayout()
+        self.title_label = QLabel()
+        self.title_label.setObjectName("TitleLabel")
+        self.title_label.setFont(QFont("Sans Serif", 20, QFont.Weight.Bold))
+        header_layout.addWidget(self.title_label, stretch=1)
 
-        if self.is_installed:
-            self.launch_btn = QPushButton("Launch")
-            self.launch_btn.clicked.connect(self.launch_game)
-            self.launch_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
-            button_layout.addWidget(self.launch_btn)
+        self.status_badge = QLabel("Not installed")
+        self.status_badge.setObjectName("StatusBadge")
+        self.status_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_badge.setMinimumWidth(160)
+        header_layout.addWidget(self.status_badge, stretch=0)
+        content_layout.addLayout(header_layout)
 
-            self.uninstall_btn = QPushButton("Uninstall")
-            self.uninstall_btn.clicked.connect(self.uninstall_game)
-            self.uninstall_btn.setStyleSheet("background-color: #f44336; color: white;")
-            button_layout.addWidget(self.uninstall_btn)
+        # Action buttons row
+        action_layout = QHBoxLayout()
+        action_layout.setSpacing(10)
+
+        self.install_btn = QPushButton("Install")
+        self.install_btn.setProperty("kind", "primary")
+        self.install_btn.clicked.connect(self._emit_install)
+        action_layout.addWidget(self.install_btn)
+
+        self.launch_btn = QPushButton("Launch")
+        self.launch_btn.setProperty("kind", "success")
+        self.launch_btn.clicked.connect(self._emit_launch)
+        action_layout.addWidget(self.launch_btn)
+
+        self.uninstall_btn = QPushButton("Uninstall")
+        self.uninstall_btn.setProperty("kind", "danger")
+        self.uninstall_btn.clicked.connect(self._emit_uninstall)
+        action_layout.addWidget(self.uninstall_btn)
+
+        action_layout.addStretch()
+
+        self.open_site_btn = QPushButton("Open Website")
+        self.open_site_btn.clicked.connect(self._emit_open_site)
+        action_layout.addWidget(self.open_site_btn)
+
+        self.open_folder_btn = QPushButton("Open Folder")
+        self.open_folder_btn.clicked.connect(self._emit_open_folder)
+        action_layout.addWidget(self.open_folder_btn)
+
+        content_layout.addLayout(action_layout)
+
+        # Tabs for overview, installation, and activity
+        self.tabs = QTabWidget()
+        self.tabs.setTabPosition(QTabWidget.TabPosition.North)
+
+        # Overview tab
+        overview_tab = QWidget()
+        overview_layout = QVBoxLayout(overview_tab)
+        overview_layout.setSpacing(10)
+
+        overview_form = QFormLayout()
+        overview_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        overview_form.setFormAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        self.genre_value = QLabel()
+        overview_form.addRow("Genre:", self.genre_value)
+
+        self.server_value = QLabel()
+        overview_form.addRow("Server:", self.server_value)
+
+        self.population_value = QLabel()
+        overview_form.addRow("Population:", self.population_value)
+
+        self.native_value = QLabel()
+        overview_form.addRow("Native Linux:", self.native_value)
+
+        self.tested_value = QLabel()
+        overview_form.addRow("Tested:", self.tested_value)
+
+        self.install_type_value = QLabel()
+        overview_form.addRow("Install Type:", self.install_type_value)
+
+        overview_layout.addLayout(overview_form)
+
+        self.description_field = QPlainTextEdit()
+        self.description_field.setReadOnly(True)
+        self.description_field.setMaximumBlockCount(1000)
+        self.description_field.setMinimumHeight(120)
+        overview_layout.addWidget(QLabel("Description:"))
+        overview_layout.addWidget(self.description_field)
+
+        self.tabs.addTab(overview_tab, "Overview")
+
+        # Installation tab
+        install_tab = QWidget()
+        install_layout = QVBoxLayout(install_tab)
+        install_layout.setSpacing(10)
+
+        install_form = QFormLayout()
+        install_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        install_form.setFormAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        self.dependencies_value = QLabel()
+        self.dependencies_value.setWordWrap(True)
+        install_form.addRow("Dependencies:", self.dependencies_value)
+
+        self.path_value = QLabel("-")
+        self.path_value.setWordWrap(True)
+        install_form.addRow("Install Path:", self.path_value)
+
+        install_layout.addLayout(install_form)
+
+        self.notes_field = QPlainTextEdit()
+        self.notes_field.setReadOnly(True)
+        self.notes_field.setMaximumBlockCount(2000)
+        self.notes_field.setMinimumHeight(180)
+        install_layout.addWidget(QLabel("Installation Notes:"))
+        install_layout.addWidget(self.notes_field)
+
+        self.tabs.addTab(install_tab, "Installation")
+
+        # Activity tab
+        activity_tab = QWidget()
+        activity_layout = QVBoxLayout(activity_tab)
+        activity_layout.setSpacing(10)
+
+        self.activity_label = QLabel("No active tasks")
+        self.activity_label.setStyleSheet("color: #adb3c7;")
+        activity_layout.addWidget(self.activity_label)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.hide()
+        activity_layout.addWidget(self.progress_bar)
+
+        self.log_field = QPlainTextEdit()
+        self.log_field.setReadOnly(True)
+        self.log_field.setMaximumBlockCount(3000)
+        self.log_field.setMinimumHeight(200)
+        activity_layout.addWidget(self.log_field)
+
+        self.tabs.addTab(activity_tab, "Activity & Logs")
+
+        content_layout.addWidget(self.tabs)
+        layout.addWidget(self.content)
+
+    # --- Helpers ---------------------------------------------------------
+    def clear_display(self):
+        self.current_game_id = None
+        self.current_game_data = None
+        self.content.hide()
+        self.placeholder.show()
+        self._set_status_badge("Not installed", "#39435a")
+        self.clear_activity()
+
+    def display_game(self, game_id: str, game_data: dict, install_info: Optional[dict]):
+        self.current_game_id = game_id
+        self.current_game_data = game_data
+
+        if self.placeholder.isVisible():
+            self.placeholder.hide()
+            self.content.show()
+
+        self.title_label.setText(game_data['name'])
+        self.genre_value.setText(game_data['genre'])
+        self.server_value.setText(game_data['server'])
+        self.population_value.setText(game_data['population'])
+        self.native_value.setText('Yes' if game_data['native'] else 'No (Wine/Proton)')
+        self.tested_value.setText('Yes' if game_data['tested'] else 'Not verified')
+        self.install_type_value.setText(game_data['install_type'].replace('_', ' ').title())
+
+        self.description_field.setPlainText(game_data['description'])
+        self.notes_field.setPlainText(game_data['install_notes'])
+
+        deps = game_data['dependencies'] or []
+        self.dependencies_value.setText(', '.join(deps) if deps else 'None')
+
+        if install_info and install_info.get('path'):
+            self.path_value.setText(install_info['path'])
         else:
-            self.install_btn = QPushButton("Install")
-            self.install_btn.clicked.connect(self.install_game)
-            self.install_btn.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
-            button_layout.addWidget(self.install_btn)
+            self.path_value.setText('Not installed')
 
-        self.info_btn = QPushButton("Info")
-        self.info_btn.clicked.connect(self.show_info)
-        button_layout.addWidget(self.info_btn)
+        pending_manual = bool(install_info and install_info.get('status') == 'pending_manual')
 
-        layout.addLayout(button_layout)
-        self.setLayout(layout)
-
-    def launch_game(self):
-        if self.installer.launch_game(self.game_id, self.game_data):
-            QMessageBox.information(self, "Success", f"{self.game_data['name']} launched!")
-        else:
-            QMessageBox.critical(self, "Error", f"Failed to launch {self.game_data['name']}")
-
-    def install_game(self):
-        reply = QMessageBox.question(self, 'Install Game',
-                                     f"Install {self.game_data['name']}?\n\n"
-                                     f"Dependencies: {', '.join(self.game_data['dependencies'])}",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
-        if reply == QMessageBox.StandardButton.Yes:
-            # Show progress dialog
-            progress_dialog = QMessageBox(self)
-            progress_dialog.setWindowTitle("Installing...")
-            progress_dialog.setText(f"Installing {self.game_data['name']}")
-            progress_dialog.setStandardButtons(QMessageBox.StandardButton.NoButton)
-            progress_dialog.show()
-
-            # Start installation in background thread
-            self.install_thread = InstallThread(self.installer, self.game_id, self.game_data)
-            self.install_thread.progress.connect(lambda msg: progress_dialog.setText(msg))
-            self.install_thread.finished.connect(lambda success: self.installation_finished(success, progress_dialog))
-            self.install_thread.start()
-
-    def installation_finished(self, success, dialog):
-        dialog.close()
-        if success:
-            QMessageBox.information(self, "Success", f"{self.game_data['name']} installed successfully!")
-            self.is_installed = True
-            # Refresh the card
-            self.setup_ui()
-        else:
-            QMessageBox.warning(self, "Installation",
-                              f"{self.game_data['name']} installation requires manual steps.\n\n"
-                              f"Please check the info panel for instructions.")
-
-    def uninstall_game(self):
-        reply = QMessageBox.question(self, 'Uninstall Game',
-                                     f"Are you sure you want to uninstall {self.game_data['name']}?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
-        if reply == QMessageBox.StandardButton.Yes:
-            if self.installer.uninstall_game(self.game_id):
-                QMessageBox.information(self, "Success", f"{self.game_data['name']} uninstalled!")
-                self.is_installed = False
-                self.setup_ui()
+        if install_info:
+            if pending_manual:
+                self._set_status_badge('Manual steps required', '#f9a825', text_color='#1b1e27')
             else:
-                QMessageBox.critical(self, "Error", "Failed to uninstall game")
+                self._set_status_badge('Installed', '#43a047')
+        else:
+            self._set_status_badge('Not installed', '#39435a')
 
-    def show_info(self):
-        info_text = f"""
-<h2>{self.game_data['name']}</h2>
-<p><b>Genre:</b> {self.game_data['genre']}</p>
-<p><b>Server:</b> {self.game_data['server']}</p>
-<p><b>Population:</b> {self.game_data['population']}</p>
-<p><b>Website:</b> <a href="{self.game_data['website']}">{self.game_data['website']}</a></p>
-<p><b>Native Linux:</b> {'Yes' if self.game_data['native'] else 'No'}</p>
-<p><b>Tested:</b> {'Yes' if self.game_data['tested'] else 'No'}</p>
+        self.install_btn.setEnabled(install_info is None or pending_manual)
+        self.install_btn.setText('Install' if install_info is None else 'Review Manual Steps')
+        self.launch_btn.setEnabled(bool(install_info) and not pending_manual)
+        self.uninstall_btn.setEnabled(bool(install_info))
+        self.open_folder_btn.setEnabled(bool(install_info) and install_info.get('path'))
 
-<h3>Description</h3>
-<p>{self.game_data['description']}</p>
+        self.clear_activity()
 
-<h3>Installation Type</h3>
-<p>{self.game_data['install_type']}</p>
+    def _set_status_badge(self, text: str, background: str, text_color: str = '#f5f8ff'):
+        self.status_badge.setText(text)
+        self.status_badge.setStyleSheet(
+            f"padding: 6px 12px; border-radius: 12px; background-color: {background}; color: {text_color};"
+        )
 
-<h3>Dependencies</h3>
-<p>{', '.join(self.game_data['dependencies']) if self.game_data['dependencies'] else 'None'}</p>
+    def clear_activity(self):
+        self.activity_label.setText("No active tasks")
+        self.log_field.clear()
+        self.progress_bar.hide()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
 
-<h3>Installation Notes</h3>
-<p>{self.game_data['install_notes']}</p>
+    def begin_activity(self, header: str):
+        self.activity_label.setText(header)
+        self.log_field.clear()
+        self.progress_bar.show()
+        self.progress_bar.setRange(0, 0)  # Busy indicator
 
-<h3>Download URL</h3>
-<p><a href="{self.game_data['client_download_url']}">{self.game_data['client_download_url']}</a></p>
-        """
+    def end_activity(self, footer: str = "Finished"):
+        self.activity_label.setText(footer)
+        self.progress_bar.hide()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
 
-        msg = QMessageBox(self)
-        msg.setWindowTitle(f"Game Info - {self.game_data['name']}")
-        msg.setTextFormat(Qt.TextFormat.RichText)
-        msg.setText(info_text)
-        msg.setStandardButtons(QMessageBox.StandardButton.Close)
-        msg.exec()
+    def update_activity(self, message: str):
+        self.activity_label.setText(message)
+        self.log_field.appendPlainText(message)
+        cursor = self.log_field.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        self.log_field.setTextCursor(cursor)
+
+    # --- Signal emitters -------------------------------------------------
+    def _emit_install(self):
+        if self.current_game_id:
+            self.install_requested.emit(self.current_game_id)
+
+    def _emit_uninstall(self):
+        if self.current_game_id:
+            self.uninstall_requested.emit(self.current_game_id)
+
+    def _emit_launch(self):
+        if self.current_game_id:
+            self.launch_requested.emit(self.current_game_id)
+
+    def _emit_open_site(self):
+        if self.current_game_id:
+            self.open_site_requested.emit(self.current_game_id)
+
+    def _emit_open_folder(self):
+        if self.current_game_id:
+            self.open_folder_requested.emit(self.current_game_id)
 
 
 class LauncherApp(QMainWindow):
+    """Primary window presenting expert launcher UI."""
+
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Linux MMORPG Launcher")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowTitle("Linux MMORPG Launcher – Expert Edition")
+        self.setGeometry(100, 100, 1360, 860)
 
         self.installer = GameInstaller()
         self.games_db = get_all_games()
+        self.install_thread: Optional[InstallThread] = None
+        self.active_install_game: Optional[str] = None
 
-        self.setup_ui()
+        self._setup_ui()
+        self._apply_style()
+        self.refresh_game_list()
 
-    def setup_ui(self):
-        # Menu bar
+    # --- UI assembly -----------------------------------------------------
+    def _setup_ui(self):
         menu = self.menuBar()
         file_menu = menu.addMenu("File")
-        file_menu.addAction("Refresh", self.refresh_games)
+        file_menu.addAction("Refresh Library", self.refresh_games_database)
+        file_menu.addSeparator()
         file_menu.addAction("Exit", self.close)
 
         tools_menu = menu.addMenu("Tools")
@@ -205,120 +371,391 @@ class LauncherApp(QMainWindow):
         help_menu = menu.addMenu("Help")
         help_menu.addAction("About", self.show_about)
 
-        # Central widget with tabs
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        central = QWidget()
+        central_layout = QVBoxLayout(central)
+        central_layout.setContentsMargins(12, 12, 12, 12)
+        central_layout.setSpacing(12)
 
-        main_layout = QVBoxLayout()
+        # Filters row
+        filters_layout = QHBoxLayout()
+        filters_layout.setSpacing(10)
 
-        # Filter/Search bar
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("Filter:"))
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search by name, description, or server...")
+        self.search_input.textChanged.connect(self.refresh_game_list)
+        filters_layout.addWidget(QLabel("Search:"))
+        filters_layout.addWidget(self.search_input, stretch=2)
 
-        self.filter_combo = QComboBox()
-        self.filter_combo.addItems(["All Games", "Installed", "Not Installed", "Native Linux", "Tested"])
-        self.filter_combo.currentTextChanged.connect(self.filter_games)
-        filter_layout.addWidget(self.filter_combo)
+        self.status_filter = QComboBox()
+        self.status_filter.addItem("All statuses", "all")
+        self.status_filter.addItem("Installed", "installed")
+        self.status_filter.addItem("Not installed", "not_installed")
+        self.status_filter.addItem("Manual follow-up", "manual")
+        self.status_filter.currentIndexChanged.connect(self.refresh_game_list)
+        filters_layout.addWidget(QLabel("Status:"))
+        filters_layout.addWidget(self.status_filter)
 
-        filter_layout.addStretch()
-        main_layout.addLayout(filter_layout)
+        genres = sorted({data['genre'] for data in self.games_db.values()})
+        self.genre_filter = QComboBox()
+        self.genre_filter.addItem("All genres", "all")
+        for genre in genres:
+            self.genre_filter.addItem(genre, genre)
+        self.genre_filter.currentIndexChanged.connect(self.refresh_game_list)
+        filters_layout.addWidget(QLabel("Genre:"))
+        filters_layout.addWidget(self.genre_filter)
 
-        # Scroll area for game cards
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tested_filter = QComboBox()
+        self.tested_filter.addItem("Any testing status", "all")
+        self.tested_filter.addItem("Verified", "tested")
+        self.tested_filter.addItem("Not verified", "untested")
+        self.tested_filter.currentIndexChanged.connect(self.refresh_game_list)
+        filters_layout.addWidget(QLabel("QA:"))
+        filters_layout.addWidget(self.tested_filter)
 
-        self.games_container = QWidget()
-        self.games_layout = QVBoxLayout()
-        self.games_container.setLayout(self.games_layout)
-        scroll.setWidget(self.games_container)
+        filters_layout.addStretch()
+        central_layout.addLayout(filters_layout)
 
-        main_layout.addWidget(scroll)
+        # Main splitter with list and detail panel
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
 
-        # Status bar
+        list_panel = QWidget()
+        list_layout = QVBoxLayout(list_panel)
+        list_layout.setContentsMargins(0, 0, 0, 0)
+        list_layout.setSpacing(8)
+
+        self.list_summary = QLabel("0 games")
+        self.list_summary.setStyleSheet("color: #7a8193;")
+        list_layout.addWidget(self.list_summary)
+
+        self.games_list = QListWidget()
+        self.games_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.games_list.itemSelectionChanged.connect(self.on_game_selected)
+        list_layout.addWidget(self.games_list)
+
+        splitter.addWidget(list_panel)
+
+        self.detail_panel = GameDetailPanel()
+        self.detail_panel.install_requested.connect(self.handle_install_request)
+        self.detail_panel.uninstall_requested.connect(self.handle_uninstall_request)
+        self.detail_panel.launch_requested.connect(self.handle_launch_request)
+        self.detail_panel.open_site_requested.connect(self.handle_open_site_request)
+        self.detail_panel.open_folder_requested.connect(self.handle_open_folder_request)
+        splitter.addWidget(self.detail_panel)
+
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+
+        central_layout.addWidget(splitter)
+        self.setCentralWidget(central)
+
         self.statusBar().showMessage("Ready")
 
-        central_widget.setLayout(main_layout)
+    def _apply_style(self):
+        self.setStyleSheet(
+            """
+            QMainWindow { background-color: #161923; color: #e8ecff; }
+            QLabel { color: #dce3ff; }
+            QLabel#TitleLabel { font-size: 22px; color: #f5f8ff; }
+            QLabel#StatusBadge { font-weight: bold; }
+            QLineEdit, QComboBox, QListWidget { background-color: #1e2330; color: #f1f4ff; border: 1px solid #2b3142; border-radius: 4px; padding: 6px; }
+            QListWidget::item { padding: 8px; }
+            QListWidget::item:selected { background-color: #39405a; }
+            QPushButton { background-color: #2b3142; color: #f1f4ff; border: 1px solid #384056; border-radius: 6px; padding: 8px 14px; }
+            QPushButton[kind="primary"] { background-color: #2e7dff; border-color: #3270ff; }
+            QPushButton[kind="success"] { background-color: #43a047; border-color: #2e7d32; }
+            QPushButton[kind="danger"] { background-color: #d84343; border-color: #c62828; }
+            QPushButton:disabled { background-color: #262c3a; color: #7a8193; border-color: #262c3a; }
+            QTabWidget::pane { border: 1px solid #2b3142; border-radius: 6px; }
+            QTabBar::tab { background: #1e2330; color: #d7dcf5; padding: 8px 14px; border-top-left-radius: 6px; border-top-right-radius: 6px; }
+            QTabBar::tab:selected { background: #2b3142; }
+            QPlainTextEdit { background-color: #141824; color: #f1f4ff; border: 1px solid #2b3142; border-radius: 6px; }
+            QProgressBar { border: 1px solid #2b3142; border-radius: 6px; background: #1e2330; }
+            QProgressBar::chunk { background-color: #2e7dff; border-radius: 6px; }
+            """
+        )
 
-        # Load games
-        self.load_games()
+    # --- Data / filtering ------------------------------------------------
+    def refresh_game_list(self):
+        search_term = self.search_input.text().strip().lower()
+        status_filter = self.status_filter.currentData()
+        genre_filter = self.genre_filter.currentData()
+        tested_filter = self.tested_filter.currentData()
 
-    def load_games(self, filter_type="All Games"):
-        # Clear existing games
-        while self.games_layout.count():
-            child = self.games_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        current_selection = None
+        selected_items = self.games_list.selectedItems()
+        if selected_items:
+            current_selection = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        elif self.detail_panel.current_game_id:
+            current_selection = self.detail_panel.current_game_id
 
-        # Filter games
-        games_to_show = {}
+        self.games_list.blockSignals(True)
+        self.games_list.clear()
 
-        for game_id, game_data in self.games_db.items():
-            if filter_type == "All Games":
-                games_to_show[game_id] = game_data
-            elif filter_type == "Installed" and self.installer.is_installed(game_id):
-                games_to_show[game_id] = game_data
-            elif filter_type == "Not Installed" and not self.installer.is_installed(game_id):
-                games_to_show[game_id] = game_data
-            elif filter_type == "Native Linux" and game_data['native']:
-                games_to_show[game_id] = game_data
-            elif filter_type == "Tested" and game_data['tested']:
-                games_to_show[game_id] = game_data
+        filtered_games = []
 
-        # Add game cards
-        for game_id, game_data in games_to_show.items():
-            card = GameCard(game_id, game_data, self.installer)
-            self.games_layout.addWidget(card)
+        for game_id, game_data in sorted(self.games_db.items(), key=lambda item: item[1]['name']):
+            name = game_data['name']
+            description = game_data['description']
+            server = game_data['server']
 
-        self.games_layout.addStretch()
+            if search_term and search_term not in name.lower() and search_term not in description.lower() and search_term not in server.lower():
+                continue
 
-        # Update status
-        installed_count = len([g for g in self.games_db.keys() if self.installer.is_installed(g)])
-        total_count = len(self.games_db)
-        self.statusBar().showMessage(f"Showing {len(games_to_show)} games | {installed_count}/{total_count} installed")
+            install_info = self.installer.installed_games.get(game_id)
+            is_installed = install_info is not None
+            pending_manual = bool(install_info and install_info.get('status') == 'pending_manual')
 
-    def filter_games(self, filter_type):
-        self.load_games(filter_type)
+            if status_filter == 'installed' and not is_installed:
+                continue
+            if status_filter == 'not_installed' and is_installed:
+                continue
+            if status_filter == 'manual' and not pending_manual:
+                continue
+            if status_filter not in ('all', 'manual') and pending_manual:
+                # Exclude pending manual from installed filter when not explicitly requested
+                if status_filter == 'installed':
+                    continue
+
+            if genre_filter != 'all' and game_data['genre'] != genre_filter:
+                continue
+
+            if tested_filter == 'tested' and not game_data['tested']:
+                continue
+            if tested_filter == 'untested' and game_data['tested']:
+                continue
+
+            filtered_games.append((game_id, game_data, install_info))
+
+        for game_id, game_data, install_info in filtered_games:
+            item = QListWidgetItem(game_data['name'])
+            item.setData(Qt.ItemDataRole.UserRole, game_id)
+            if install_info:
+                if install_info.get('status') == 'pending_manual':
+                    item.setForeground(Qt.GlobalColor.yellow)
+                else:
+                    item.setForeground(Qt.GlobalColor.green)
+            self.games_list.addItem(item)
+
+        self.games_list.blockSignals(False)
+
+        count_text = f"{len(filtered_games)} of {len(self.games_db)} games"
+        self.list_summary.setText(count_text)
+        self.statusBar().showMessage(f"Filtered {len(filtered_games)} titles")
+
+        if not filtered_games:
+            self.detail_panel.clear_display()
+            return
+
+        # Restore selection or select first item
+        restored = False
+        if current_selection:
+            for row in range(self.games_list.count()):
+                item = self.games_list.item(row)
+                if item.data(Qt.ItemDataRole.UserRole) == current_selection:
+                    self.games_list.setCurrentRow(row)
+                    restored = True
+                    break
+
+        if not restored:
+            self.games_list.setCurrentRow(0)
+
+    def on_game_selected(self):
+        items = self.games_list.selectedItems()
+        if not items:
+            self.detail_panel.clear_display()
+            return
+
+        item = items[0]
+        game_id = item.data(Qt.ItemDataRole.UserRole)
+        game_data = self.games_db.get(game_id)
+        if not game_data:
+            return
+
+        install_info = self.installer.installed_games.get(game_id)
+        self.detail_panel.display_game(game_id, game_data, install_info)
+        self.statusBar().showMessage(f"Selected: {game_data['name']}")
+
+    # --- Actions ---------------------------------------------------------
+    def refresh_games_database(self):
+        self.installer = GameInstaller()
+        self.games_db = get_all_games()
+        self.detail_panel.clear_display()
+        self.refresh_game_list()
+        QMessageBox.information(self, "Game Library", "Game definitions reloaded. Installer refreshed.")
+
+    def handle_install_request(self, game_id: str):
+        if self.install_thread and self.install_thread.isRunning():
+            QMessageBox.information(self, "Installation in progress", "Please wait for the current installation to finish before starting another.")
+            return
+
+        game_data = get_game_by_id(game_id)
+        if not game_data:
+            QMessageBox.warning(self, "Game not found", "Unable to locate the selected game in the database.")
+            return
+
+        deps = ', '.join(game_data['dependencies']) if game_data['dependencies'] else 'None'
+        reply = QMessageBox.question(
+            self,
+            "Install Game",
+            f"Install {game_data['name']}?\n\nDependencies: {deps}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self.active_install_game = game_id
+        self.detail_panel.begin_activity(f"Installing {game_data['name']}...")
+
+        self.install_thread = InstallThread(self.installer, game_id, game_data)
+        self.install_thread.progress.connect(lambda msg, gid=game_id: self.on_install_progress(gid, msg))
+        self.install_thread.finished.connect(lambda success, gid=game_id: self.on_install_finished(gid, success))
+        self.install_thread.start()
+
+    def on_install_progress(self, game_id: str, message: str):
+        if self.detail_panel.current_game_id == game_id:
+            self.detail_panel.update_activity(message)
+        logging.info(f"{game_id}: {message}")
+
+    def on_install_finished(self, game_id: str, success: bool):
+        if self.install_thread:
+            self.install_thread.deleteLater()
+            self.install_thread = None
+
+        install_info = self.installer.installed_games.get(game_id)
+        pending_manual = bool(install_info and install_info.get('status') == 'pending_manual')
+
+        if self.detail_panel.current_game_id == game_id:
+            footer = "Installation complete" if success else "Installation finished with notes"
+            if pending_manual:
+                footer = "Manual steps still required"
+            elif not success and not install_info:
+                footer = "Installation failed"
+
+            self.detail_panel.end_activity(footer)
+            self.detail_panel.display_game(game_id, self.games_db[game_id], install_info)
+
+        self.refresh_game_list()
+
+        if success:
+            QMessageBox.information(self, "Installation", f"{self.games_db[game_id]['name']} installed successfully.")
+        else:
+            if pending_manual:
+                QMessageBox.warning(
+                    self,
+                    "Manual Steps Required",
+                    "Installation requires manual follow-up. Review the installation notes in the detail panel."
+                )
+            elif install_info:
+                QMessageBox.information(
+                    self,
+                    "Installation",
+                    "Installation completed with warnings. Review the logs for details."
+                )
+            else:
+                QMessageBox.critical(self, "Installation failed", "The game could not be installed. Check the activity log for details.")
+
+        self.active_install_game = None
+
+    def handle_uninstall_request(self, game_id: str):
+        game_data = get_game_by_id(game_id)
+        if not game_data:
+            QMessageBox.warning(self, "Game not found", "Unable to locate the selected game in the database.")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Uninstall Game",
+            f"Are you sure you want to uninstall {game_data['name']}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        if self.installer.uninstall_game(game_id):
+            self.detail_panel.end_activity("Game removed")
+            self.refresh_game_list()
+            self.detail_panel.display_game(game_id, game_data, self.installer.installed_games.get(game_id))
+            QMessageBox.information(self, "Uninstall", f"{game_data['name']} has been removed.")
+        else:
+            QMessageBox.critical(self, "Uninstall", "Failed to remove the game. Check permissions and try again.")
+
+    def handle_launch_request(self, game_id: str):
+        game_data = get_game_by_id(game_id)
+        if not game_data:
+            QMessageBox.warning(self, "Game not found", "Unable to locate the selected game in the database.")
+            return
+
+        if self.installer.launch_game(game_id, game_data):
+            self.statusBar().showMessage(f"Launching {game_data['name']}...")
+            self.detail_panel.update_activity("Launch command executed")
+        else:
+            QMessageBox.critical(self, "Launch failed", "Unable to launch the game. Verify installation and configuration.")
+
+    def handle_open_site_request(self, game_id: str):
+        game_data = get_game_by_id(game_id)
+        if not game_data:
+            return
+        url = game_data.get('website')
+        if url:
+            QDesktopServices.openUrl(QUrl(url))
+
+    def handle_open_folder_request(self, game_id: str):
+        path = self.installer.get_game_path(game_id)
+        if not path:
+            QMessageBox.information(self, "Open Folder", "No installation path recorded for this title.")
+            return
+
+        if not path.exists():
+            QMessageBox.warning(self, "Open Folder", "The recorded installation path no longer exists.")
+            return
+
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     def refresh_games(self):
-        self.installer = GameInstaller()
-        self.load_games(self.filter_combo.currentText())
-        QMessageBox.information(self, "Refresh", "Games list refreshed!")
+        self.refresh_game_list()
 
     def check_dependencies(self):
         deps = ["umu-launcher", "wine", "steam", "flatpak", "java"]
         results = self.installer.check_dependencies(deps)
 
-        msg = "Dependency Check:\n\n"
+        summary_lines = []
         for dep, installed in results.items():
-            status = "✓ Installed" if installed else "✗ Not Installed"
-            msg += f"{dep}: {status}\n"
+            status = "OK" if installed else "Missing"
+            summary_lines.append(f"{dep}: {status}")
 
-        QMessageBox.information(self, "Dependencies", msg)
+        QMessageBox.information(self, "Dependency Check", "\n".join(summary_lines))
 
     def view_logs(self):
         if LOG_FILE.exists():
-            with open(LOG_FILE, 'r') as f:
-                logs = f.read()
+            try:
+                content = LOG_FILE.read_text()
+            except Exception as exc:  # pragma: no cover - filesystem failure path
+                QMessageBox.warning(self, "Logs", f"Failed to read log file: {exc}")
+                return
 
             dialog = QMessageBox(self)
             dialog.setWindowTitle("Launcher Logs")
             dialog.setText("Recent log entries:")
-            dialog.setDetailedText(logs)
+            dialog.setDetailedText(content)
             dialog.exec()
         else:
-            QMessageBox.information(self, "Logs", "No logs found")
+            QMessageBox.information(self, "Logs", "No log entries recorded yet.")
 
     def show_about(self):
-        QMessageBox.information(self, "About",
-                               "Linux MMORPG Launcher\n\n"
-                               "A professional MMO game launcher for Linux\n"
-                               "Powered by PyQt6 + UMU\n\n"
-                               "Features:\n"
-                               "• 30+ MMORPG support\n"
-                               "• One-click installation\n"
-                               "• UMU launcher integration\n"
-                               "• Native Linux games support")
+        QMessageBox.information(
+            self,
+            "About",
+            "Linux MMORPG Launcher – Expert Edition\n\n"
+            "Enhanced interface for power users.\n"
+            "Features:\n"
+            "• Split-view library explorer\n"
+            "• Detailed install & activity tracking\n"
+            "• Quick access to game resources"
+        )
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
