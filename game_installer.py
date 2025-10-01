@@ -8,27 +8,39 @@ import subprocess
 import logging
 import json
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict, Any
 import urllib.request
 import shutil
+
+# Constants
+DEFAULT_GAMES_DIR = Path.home() / "Games"
+CONFIG_DIR = Path.home() / ".config" / "mmo-launcher"
+INSTALLED_GAMES_FILE = CONFIG_DIR / "installed_games.json"
+LOG_DIR = Path("logs")
+LOG_FILE = LOG_DIR / "installer.log"
+
+AUR_HELPERS = ["yay", "paru", "pikaur", "trizen"]
+TERMINAL_EMULATORS = ["konsole", "gnome-terminal", "xfce4-terminal", "alacritty", "kitty", "xterm"]
+UMU_COMMANDS = ["umu-run", "umu"]
+
 
 class GameInstaller:
     def __init__(self, games_dir: str = None):
         """Initialize game installer"""
-        self.games_dir = Path(games_dir) if games_dir else Path.home() / "Games"
+        self.games_dir = Path(games_dir) if games_dir else DEFAULT_GAMES_DIR
         self.games_dir.mkdir(parents=True, exist_ok=True)
 
-        self.config_dir = Path.home() / ".config" / "mmo-launcher"
+        self.config_dir = CONFIG_DIR
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
-        self.installed_games_file = self.config_dir / "installed_games.json"
+        self.installed_games_file = INSTALLED_GAMES_FILE
         self.installed_games = self._load_installed_games()
 
         # Detect AUR helper
         self.aur_helper = self._detect_aur_helper()
 
         # Setup logging
-        self.log_file = Path("logs/installer.log")
+        self.log_file = LOG_FILE
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
         logging.basicConfig(
@@ -39,23 +51,35 @@ class GameInstaller:
 
     def _detect_aur_helper(self) -> Optional[str]:
         """Detect available AUR helper"""
-        for helper in ["yay", "paru", "pikaur", "trizen"]:
+        for helper in AUR_HELPERS:
             if shutil.which(helper):
                 logging.info(f"Detected AUR helper: {helper}")
                 return helper
         return None
 
-    def _load_installed_games(self) -> dict:
+    def _load_installed_games(self) -> Dict[str, Any]:
         """Load list of installed games from config"""
         if self.installed_games_file.exists():
-            with open(self.installed_games_file, 'r') as f:
-                return json.load(f)
+            try:
+                with open(self.installed_games_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except json.JSONDecodeError as e:
+                logging.error(f"Failed to parse installed games file: {e}")
+                return {}
+            except Exception as e:
+                logging.error(f"Error loading installed games: {e}")
+                return {}
         return {}
 
-    def _save_installed_games(self):
+    def _save_installed_games(self) -> bool:
         """Save installed games to config"""
-        with open(self.installed_games_file, 'w') as f:
-            json.dump(self.installed_games, f, indent=2)
+        try:
+            with open(self.installed_games_file, 'w', encoding='utf-8') as f:
+                json.dump(self.installed_games, f, indent=2)
+            return True
+        except Exception as e:
+            logging.error(f"Failed to save installed games: {e}")
+            return False
 
     def is_installed(self, game_id: str) -> bool:
         """Check if game is installed"""
@@ -73,8 +97,8 @@ class GameInstaller:
 
         for dep in dependencies:
             if dep == "umu-launcher":
-                results[dep] = shutil.which("umu") is not None or shutil.which("umu-run") is not None
-            elif dep == "wine" or dep == "wine-staging":
+                results[dep] = any(shutil.which(cmd) for cmd in UMU_COMMANDS)
+            elif dep in ("wine", "wine-staging"):
                 results[dep] = shutil.which("wine") is not None
             elif dep == "steam":
                 results[dep] = shutil.which("steam") is not None
@@ -87,6 +111,58 @@ class GameInstaller:
                 results[dep] = True
 
         return results
+
+    def _install_flatpak_game(self, game_id: str, flatpak_id: str, game_name: str, 
+                              progress_callback: Callable = None) -> bool:
+        """
+        Helper method to install a game via Flatpak.
+        
+        Args:
+            game_id: Unique game identifier
+            flatpak_id: Flatpak application ID
+            game_name: Human-readable game name
+            progress_callback: Optional callback for progress updates
+            
+        Returns:
+            bool: True if installation was successful
+        """
+        if progress_callback:
+            progress_callback(f"Installing via Flatpak: {flatpak_id}")
+
+        try:
+            result = subprocess.run(
+                ["flatpak", "install", "-y", "flathub", flatpak_id],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+
+            if result.returncode == 0:
+                self.installed_games[game_id] = {
+                    'name': game_name,
+                    'path': f"flatpak://{flatpak_id}",
+                    'install_type': 'flatpak'
+                }
+                self._save_installed_games()
+                if progress_callback:
+                    progress_callback("Installation complete!")
+                logging.info(f"Installed {game_name} via Flatpak")
+                return True
+            else:
+                logging.error(f"Flatpak install failed: {result.stderr}")
+                if progress_callback:
+                    progress_callback(f"Flatpak installation failed: {result.stderr}")
+                return False
+        except FileNotFoundError:
+            logging.error("Flatpak not found on system")
+            if progress_callback:
+                progress_callback("Error: Flatpak is not installed")
+            return False
+        except Exception as e:
+            logging.error(f"Unexpected error installing Flatpak: {e}")
+            if progress_callback:
+                progress_callback(f"Installation error: {e}")
+            return False
 
     def install_dependencies(self, dependencies: list, progress_callback: Callable = None):
         """Install missing dependencies"""
@@ -180,8 +256,28 @@ class GameInstaller:
 
         return True
 
-    def download_file(self, url: str, dest: Path, progress_callback: Callable = None):
-        """Download a file with progress tracking"""
+    def download_file(self, url: str, dest: Path, progress_callback: Callable = None) -> bool:
+        """
+        Download a file with progress tracking.
+        
+        Args:
+            url: URL to download from
+            dest: Destination path for the downloaded file
+            progress_callback: Optional callback for progress updates
+            
+        Returns:
+            bool: True if download was successful
+        """
+        if not url or not isinstance(url, str):
+            logging.error("Invalid URL provided for download")
+            return False
+        
+        if not url.startswith(('http://', 'https://', 'ftp://')):
+            logging.error(f"Invalid URL scheme: {url}")
+            if progress_callback:
+                progress_callback(f"Invalid URL: {url}")
+            return False
+        
         if progress_callback:
             progress_callback(f"Downloading from {url}")
 
@@ -191,6 +287,11 @@ class GameInstaller:
             if progress_callback:
                 progress_callback(f"Download complete: {dest.name}")
             return True
+        except urllib.error.URLError as e:
+            logging.error(f"URL error downloading {url}: {e}")
+            if progress_callback:
+                progress_callback(f"Download failed: Network error")
+            return False
         except Exception as e:
             logging.error(f"Failed to download {url}: {e}")
             if progress_callback:
@@ -251,9 +352,8 @@ class GameInstaller:
                         progress_callback("Opening terminal for AUR installation...")
 
                     # Try to detect available terminal emulator
-                    terminals = ['konsole', 'gnome-terminal', 'xfce4-terminal', 'alacritty', 'kitty', 'xterm']
                     term_cmd = None
-                    for term in terminals:
+                    for term in TERMINAL_EMULATORS:
                         if shutil.which(term):
                             term_cmd = term
                             break
@@ -298,50 +398,12 @@ class GameInstaller:
                 # Fallback to Flatpak
                 if 'client_download_url' in game_data and game_data['client_download_url'].startswith("flatpak://"):
                     flatpak_id = game_data['client_download_url'].replace("flatpak://", "")
-                    if progress_callback:
-                        progress_callback(f"Installing via Flatpak: {flatpak_id}")
-
-                    result = subprocess.run(
-                        ["flatpak", "install", "-y", "flathub", flatpak_id],
-                        capture_output=True,
-                        text=True
-                    )
-
-                    if result.returncode == 0:
-                        self.installed_games[game_id] = {
-                            'name': game_data['name'],
-                            'path': f"flatpak://{flatpak_id}",
-                            'install_type': 'flatpak'
-                        }
-                        self._save_installed_games()
-                        return True
-                    else:
-                        logging.error(f"Flatpak install failed: {result.stderr}")
-                        return False
+                    return self._install_flatpak_game(game_id, flatpak_id, game_data['name'], progress_callback)
                 return False
 
             elif install_type == "flatpak":
                 flatpak_id = game_data['client_download_url'].replace("flatpak://", "")
-                if progress_callback:
-                    progress_callback(f"Installing via Flatpak: {flatpak_id}")
-
-                result = subprocess.run(
-                    ["flatpak", "install", "-y", "flathub", flatpak_id],
-                    capture_output=True,
-                    text=True
-                )
-
-                if result.returncode == 0:
-                    self.installed_games[game_id] = {
-                        'name': game_data['name'],
-                        'path': f"flatpak://{flatpak_id}",
-                        'install_type': 'flatpak'
-                    }
-                    self._save_installed_games()
-                    return True
-                else:
-                    logging.error(f"Flatpak install failed: {result.stderr}")
-                    return False
+                return self._install_flatpak_game(game_id, flatpak_id, game_data['name'], progress_callback)
 
             elif install_type == "manual_download":
                 if progress_callback:
@@ -454,8 +516,16 @@ class GameInstaller:
                 return False
 
             try:
-                # Check for umu-run or umu
-                umu_cmd = "umu-run" if shutil.which("umu-run") else "umu"
+                # Find available UMU command
+                umu_cmd = None
+                for cmd in UMU_COMMANDS:
+                    if shutil.which(cmd):
+                        umu_cmd = cmd
+                        break
+                
+                if not umu_cmd:
+                    logging.error("UMU launcher not found on system")
+                    return False
 
                 subprocess.Popen([umu_cmd, str(game_path)])
                 logging.info(f"Launched {game_data['name']} via UMU")
