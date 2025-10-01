@@ -331,6 +331,363 @@ GAMES_DATABASE = {
         "install_notes": "Native Linux client! Prefers AUR on Arch, falls back to Flatpak.",
         "native": True,
         "tested": True
+    },
+
+    # === Additional Classic Western MMORPGs ===
+    "daoc-eden": {
+        "name": "Dark Age of Camelot - Eden",
+        "genre": "RvR MMORPG",
+        "server": "Eden (Private Server - Classic)",
+        "population": "Medium-High",
+        "description": "Classic DAoC freeshard with three-realm RvR. No subscription required.",
+        "website": "https://eden-daoc.net",
+        "client_download_url": "https://eden-daoc.net/viewtopic.php?t=3527",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine-staging", "dotnet40", "dotnet45"],
+        "executable": "game.dll",
+        "install_notes": "Use Lutris with lutris-fshack-7.2-x86_64 wine version. Install dotnet40/45 via winetricks. Enable DXVK if launcher doesn't display correctly.",
+        "native": False,
+        "tested": True
+    },
+
+    "uo-outlands": {
+        "name": "Ultima Online - Outlands",
+        "genre": "Sandbox MMORPG",
+        "server": "UO Outlands (Private Server)",
+        "population": "High (2,000+ concurrent)",
+        "description": "Most popular UO freeshard. Custom content, balanced gameplay, Renaissance era.",
+        "website": "https://uooutlands.com",
+        "client_download_url": "https://wiki.uooutlands.com/Install_UO_on_Linux",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine-staging"],
+        "executable": "Launcher.exe",
+        "install_notes": "Use GE-Proton9-27. Install via Lutris or Bottles. Official Linux installation wiki available.",
+        "native": False,
+        "tested": True
+    },
+
+    "coh-homecoming": {
+        "name": "City of Heroes - Homecoming",
+        "genre": "Superhero MMORPG",
+        "server": "Homecoming (Community Server)",
+        "population": "High",
+        "description": "Community-run resurrection of CoH. Create custom superheroes, extensive character customization.",
+        "website": "https://homecomingservers.com",
+        "client_download_url": "https://forums.homecomingservers.com/files/file/16-coh-client-installer/",
+        "install_type": "auto_installer",
+        "dependencies": ["umu-launcher", "wine", "dotnet35", "dinput8"],
+        "executable": "cityofheroes.exe",
+        "install_notes": "Homecoming Launcher supports Wine. Install dotnet35 and dinput8 via winetricks. Works with win32/win64 prefixes. Often better performance than Windows.",
+        "native": False,
+        "tested": True
+    },
+
+    "swg-legends": {
+        "name": "Star Wars Galaxies - Legends",
+        "genre": "Sandbox Sci-Fi MMORPG",
+        "server": "SWG Legends (Private Server)",
+        "population": "Medium-High",
+        "description": "Post-shutdown SWG preservation. 32 professions, player cities, space combat.",
+        "website": "https://swglegends.com",
+        "client_download_url": "https://swglegends.com/wiki/index.php?title=SWG_Legends_Launcher",
+        "install_type": "auto_installer",
+        "dependencies": ["umu-launcher", "wine"],
+        "executable": "SWGEmu.exe",
+        "install_notes": "Use 32-bit Wine prefix with .NET 4.0 for launcher. Set DXVK to v1.8.1L (graphical issues with newer versions). Lutris installer available.",
+        "native": False,
+        "tested": True
+    },
+
+    # === Official Steam MMORPGs ===
+    "eso": {
+        "name": "Elder Scrolls Online",
+        "genre": "Fantasy MMORPG",
+        "server": "Official",
+        "population": "Very High",
+        "description": "Explore Tamriel. Story-driven quests, PvP, housing.",
+        "website": "https://www.elderscrollsonline.com",
+        "client_download_url": "steam://install/306130",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton"],
+        "executable": "eso64.exe",
+        "install_notes": "Use Proton Experimental or Proton 7+. Similar FPS to Windows. Minion addon manager works. Very well supported.",
+        "native": False,
+        "tested": True
+    },
+
+    "bdo": {
+        "name": "Black Desert Online",
+        "genre": "Action MMORPG",
+        "server": "Official",
+        "population": "Very High",
+        "description": "Action combat, life skills, node wars, extensive character customization.",
+        "website": "https://www.naeu.playblackdesert.com",
+        "client_download_url": "steam://install/582660",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton"],
+        "executable": "BlackDesert64.exe",
+        "install_notes": "Use Proton Experimental or ProtonGE 8-28. Steam version recommended. Works well but requires Proton tuning.",
+        "native": False,
+        "tested": True
+    },
+
+    "neverwinter": {
+        "name": "Neverwinter Online",
+        "genre": "Action MMORPG",
+        "server": "Official",
+        "population": "High",
+        "description": "D&D-based action MMORPG. Story-driven campaigns.",
+        "website": "https://www.playneverwinter.com",
+        "client_download_url": "steam://install/109600",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton"],
+        "executable": "Neverwinter.exe",
+        "install_notes": "Use Proton 10.0-2 or newer. Valve actively improving support. Runs smoothly on Linux.",
+        "native": False,
+        "tested": True
+    },
+
+    "dcuo": {
+        "name": "DC Universe Online",
+        "genre": "Superhero MMORPG",
+        "server": "Official",
+        "population": "Medium-High",
+        "description": "Create DC superheroes/villains. Action combat.",
+        "website": "https://www.dcuniverseonline.com",
+        "client_download_url": "steam://install/24200",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton"],
+        "executable": "DCGAME.EXE",
+        "install_notes": "Works with Proton 5.0.10. Avoid Proton 7/8/Experimental (DXVK regression). Free-to-play.",
+        "native": False,
+        "tested": True
+    },
+
+    "poe2": {
+        "name": "Path of Exile 2",
+        "genre": "Action RPG/MMORPG",
+        "server": "Official",
+        "population": "Very High",
+        "description": "Diablo-like ARPG with MMORPG elements. Extensive skill system.",
+        "website": "https://www.pathofexile.com",
+        "client_download_url": "steam://install/2694490",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton"],
+        "executable": "PathOfExile2.exe",
+        "install_notes": "Works with Proton 9.0-3 or newer. December 2024 Early Access works excellently on Linux.",
+        "native": False,
+        "tested": True
+    },
+
+    "apb": {
+        "name": "APB Reloaded",
+        "genre": "Action MMORPG",
+        "server": "Official",
+        "population": "Medium",
+        "description": "Cops vs Criminals open-world action MMO. Extensive customization.",
+        "website": "https://www.gamersfirst.com/apb",
+        "client_download_url": "steam://install/113400",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton-ge", "battleye-runtime"],
+        "executable": "APB.exe",
+        "install_notes": "BattlEye Linux support enabled (Sept 2024). Use Proton-GE. Install Proton BattlEye Runtime via Steam. Longer login times than Windows.",
+        "native": False,
+        "tested": True
+    },
+
+    # === Additional Native Linux MMORPGs ===
+    "ryzom": {
+        "name": "Ryzom",
+        "genre": "Sci-Fi Fantasy MMORPG",
+        "server": "Official (Native Linux, Open Source)",
+        "population": "Medium",
+        "description": "Classless sandbox MMORPG. Complex crafting, dynamic environments.",
+        "website": "https://www.ryzom.com",
+        "client_download_url": "steam://install/373720",
+        "install_type": "steam",
+        "dependencies": ["steam"],
+        "executable": "ryzom_client",
+        "install_notes": "Native Linux client. Open source (AGPLv3). Available via website or Steam.",
+        "native": True,
+        "tested": True
+    },
+
+    "wurm": {
+        "name": "Wurm Online",
+        "genre": "Sandbox MMORPG",
+        "server": "Official (Native Linux)",
+        "population": "Medium",
+        "description": "Terraforming, building, crafting-focused sandbox. Extremely deep systems.",
+        "website": "https://www.wurmonline.com",
+        "client_download_url": "https://www.wurmonline.com/download",
+        "install_type": "native",
+        "dependencies": [],
+        "executable": "WurmLauncher",
+        "install_notes": "Native Linux client via launcher or Steam. Not officially supported but community provides assistance.",
+        "native": True,
+        "tested": True
+    },
+
+    "vendetta": {
+        "name": "Vendetta Online",
+        "genre": "Space Combat MMORPG",
+        "server": "Official (Native Linux)",
+        "population": "Medium",
+        "description": "3D space combat MMO. Cross-platform (PC/Mac/Linux/Android/iOS/VR).",
+        "website": "https://www.vendetta-online.com",
+        "client_download_url": "https://www.vendetta-online.com/h/download.html",
+        "install_type": "native",
+        "dependencies": [],
+        "executable": "vendetta",
+        "install_notes": "Native Linux support since 2004. Cross-platform play. 20+ years of Linux support.",
+        "native": True,
+        "tested": True
+    },
+
+    "tibia": {
+        "name": "Tibia",
+        "genre": "Classic MMORPG",
+        "server": "Official (Native Linux)",
+        "population": "Medium-High",
+        "description": "Oldest active MMORPG (1997). New Monk class added Summer 2025.",
+        "website": "https://www.tibia.com",
+        "client_download_url": "https://www.tibia.com/support/?subtopic=gethelp&entryid=121",
+        "install_type": "native",
+        "dependencies": [],
+        "executable": "Tibia",
+        "install_notes": "Tibia 11 Linux client available. Not officially supported by CipSoft but provided.",
+        "native": True,
+        "tested": True
+    },
+
+    "flyff": {
+        "name": "Flyff Universe",
+        "genre": "Anime MMORPG",
+        "server": "Official (Browser-based)",
+        "population": "High",
+        "description": "Flying system, anime aesthetic. Browser-based remake of Flyff.",
+        "website": "https://universe.flyff.com",
+        "client_download_url": "https://universe.flyff.com/play",
+        "install_type": "native",
+        "dependencies": [],
+        "executable": "Web browser",
+        "install_notes": "No download required. Play in any modern browser (Firefox, Chrome, etc.). Cross-platform.",
+        "native": True,
+        "tested": True
+    },
+
+    # === Additional Asian MMORPGs ===
+    "perfectworld": {
+        "name": "Perfect World - Evolved PW",
+        "genre": "Fantasy MMORPG",
+        "server": "Evolved PW (Private Server)",
+        "population": "Medium-High",
+        "description": "Flying system, martial arts combat, multiple races/classes.",
+        "website": "https://evolvedpw.com",
+        "client_download_url": "https://evolvedpw.com",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine-staging"],
+        "executable": "elementclient.exe",
+        "install_notes": "Lutris installer available. Recent updates transitioned from 32-bit to 64-bit executables.",
+        "native": False,
+        "tested": True
+    },
+
+    "conqueror": {
+        "name": "Conqueror Online - ImmortalsCo",
+        "genre": "Action MMORPG",
+        "server": "ImmortalsCo (Private Server)",
+        "population": "High (7,000+ daily)",
+        "description": "Martial arts-themed action MMORPG. Fast-paced combat.",
+        "website": "https://conqueronline.net",
+        "client_download_url": "https://conqueronline.net",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine"],
+        "executable": "Conquer.exe",
+        "install_notes": "Use full 1.6GB+ installer (not small patcher). Minor non-game-breaking bugs on Linux.",
+        "native": False,
+        "tested": True
+    },
+
+    "metin2": {
+        "name": "Metin2 - Private Servers",
+        "genre": "Asian Action MMORPG",
+        "server": "Various Private Servers",
+        "population": "Medium-High (varies)",
+        "description": "Action combat Korean MMORPG. Multiple private servers with custom features.",
+        "website": "https://metin2pserver.net",
+        "client_download_url": "https://metin2pserver.net",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine-staging"],
+        "executable": "metin2client.exe",
+        "install_notes": "Private servers without anti-cheat work Gold/Platinum. Check server-specific compatibility.",
+        "native": False,
+        "tested": True
+    },
+
+    "drakensang": {
+        "name": "Drakensang Online",
+        "genre": "Action RPG/MMORPG",
+        "server": "Official",
+        "population": "Medium-High",
+        "description": "Browser-based action MMORPG. Also available on Steam.",
+        "website": "https://www.drakensang.com",
+        "client_download_url": "steam://install/2067850",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton"],
+        "executable": "DrakensangOnline.exe",
+        "install_notes": "Browser version works directly on Linux (no Wine needed). Steam version: use Proton Experimental.",
+        "native": False,
+        "tested": True
+    },
+
+    "wakfu": {
+        "name": "Wakfu",
+        "genre": "Tactical MMORPG",
+        "server": "Official",
+        "population": "Medium",
+        "description": "Turn-based tactical combat. Environmental/political systems.",
+        "website": "https://www.wakfu.com",
+        "client_download_url": "https://support.ankama.com/hc/en-us/articles/360017472154",
+        "install_type": "manual_download",
+        "dependencies": ["java-10-openjdk"],
+        "executable": "Wakfu",
+        "install_notes": "Ankama Launcher AppImage available. Also on Steam. Requires Java 10.",
+        "native": False,
+        "tested": True
+    },
+
+    # === Additional Games with Special Notes ===
+    "lostark": {
+        "name": "Lost Ark",
+        "genre": "Action MMORPG",
+        "server": "Official",
+        "population": "Very High",
+        "description": "Isometric action MMORPG. Raids, dungeons, multiple classes. WARNING: EAC support unstable.",
+        "website": "https://www.playlostark.com",
+        "client_download_url": "steam://install/1599340",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton"],
+        "executable": "LostArk.exe",
+        "install_notes": "Easy Anti-Cheat Linux support re-enabled (July 2025). Use Proton 9.0.4. WARNING: Support sporadic - has been enabled/disabled in past.",
+        "native": False,
+        "tested": True
+    },
+
+    "regnum": {
+        "name": "Champions of Regnum",
+        "genre": "RvR MMORPG",
+        "server": "Official (Native Linux)",
+        "population": "Low-Medium",
+        "description": "Three-realm PvP focused MMORPG. Native Linux support.",
+        "website": "https://www.championsofregnum.com",
+        "client_download_url": "steam://install/222520",
+        "install_type": "steam",
+        "dependencies": ["steam", "proton-ge"],
+        "executable": "regnum",
+        "install_notes": "Native Linux client exists but community recommends Proton-GE for better stability.",
+        "native": True,
+        "tested": True
     }
 }
 
