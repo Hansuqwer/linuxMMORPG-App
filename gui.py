@@ -1,7 +1,11 @@
+"""
+GUI module for Linux MMORPG Launcher
+Provides a PyQt6-based interface for managing and launching MMO games
+"""
 import sys
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -29,8 +33,21 @@ from PyQt6.QtGui import QFont, QDesktopServices
 from games_db import get_all_games, get_game_by_id
 from game_installer import GameInstaller
 
-
+# Constants
 LOG_FILE = Path("logs/launcher.log")
+WINDOW_TITLE = "Linux MMORPG Launcher – Expert Edition"
+DEFAULT_WINDOW_SIZE = (1360, 860)
+DEFAULT_WINDOW_POS = (100, 100)
+
+# Status badge colors
+STATUS_NOT_INSTALLED = ("#39435a", "#f5f8ff")
+STATUS_INSTALLED = ("#43a047", "#f5f8ff")
+STATUS_MANUAL_REQUIRED = ("#f9a825", "#1b1e27")
+
+# Dependencies to check
+DEFAULT_DEPENDENCIES = ["umu-launcher", "wine", "steam", "flatpak", "java"]
+
+# Ensure log directory exists
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -233,14 +250,17 @@ class GameDetailPanel(QWidget):
 
     # --- Helpers ---------------------------------------------------------
     def clear_display(self):
+        """Clear the detail panel display."""
         self.current_game_id = None
         self.current_game_data = None
         self.content.hide()
         self.placeholder.show()
-        self._set_status_badge("Not installed", "#39435a")
+        bg_color, text_color = STATUS_NOT_INSTALLED
+        self._set_status_badge("Not installed", bg_color, text_color)
         self.clear_activity()
 
-    def display_game(self, game_id: str, game_data: dict, install_info: Optional[dict]):
+    def display_game(self, game_id: str, game_data: Dict[str, Any], install_info: Optional[Dict[str, Any]]):
+        """Display game details in the panel."""
         self.current_game_id = game_id
         self.current_game_data = game_data
 
@@ -271,11 +291,14 @@ class GameDetailPanel(QWidget):
 
         if install_info:
             if pending_manual:
-                self._set_status_badge('Manual steps required', '#f9a825', text_color='#1b1e27')
+                bg_color, text_color = STATUS_MANUAL_REQUIRED
+                self._set_status_badge('Manual steps required', bg_color, text_color)
             else:
-                self._set_status_badge('Installed', '#43a047')
+                bg_color, text_color = STATUS_INSTALLED
+                self._set_status_badge('Installed', bg_color, text_color)
         else:
-            self._set_status_badge('Not installed', '#39435a')
+            bg_color, text_color = STATUS_NOT_INSTALLED
+            self._set_status_badge('Not installed', bg_color, text_color)
 
         self.install_btn.setEnabled(install_info is None or pending_manual)
         self.install_btn.setText('Install' if install_info is None else 'Review Manual Steps')
@@ -286,6 +309,7 @@ class GameDetailPanel(QWidget):
         self.clear_activity()
 
     def _set_status_badge(self, text: str, background: str, text_color: str = '#f5f8ff'):
+        """Set the status badge appearance."""
         self.status_badge.setText(text)
         self.status_badge.setStyleSheet(
             f"padding: 6px 12px; border-radius: 12px; background-color: {background}; color: {text_color};"
@@ -344,8 +368,10 @@ class LauncherApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Linux MMORPG Launcher – Expert Edition")
-        self.setGeometry(100, 100, 1360, 860)
+        self.setWindowTitle(WINDOW_TITLE)
+        x, y = DEFAULT_WINDOW_POS
+        width, height = DEFAULT_WINDOW_SIZE
+        self.setGeometry(x, y, width, height)
 
         self.installer = GameInstaller()
         self.games_db = get_all_games()
@@ -695,14 +721,25 @@ class LauncherApp(QMainWindow):
             QMessageBox.critical(self, "Launch failed", "Unable to launch the game. Verify installation and configuration.")
 
     def handle_open_site_request(self, game_id: str):
+        """Open the game's website in the default browser."""
         game_data = get_game_by_id(game_id)
         if not game_data:
+            QMessageBox.warning(self, "Open Website", "Game information not found.")
             return
+        
         url = game_data.get('website')
         if url:
-            QDesktopServices.openUrl(QUrl(url))
+            try:
+                QDesktopServices.openUrl(QUrl(url))
+                logging.info(f"Opened website for {game_data.get('name', game_id)}: {url}")
+            except Exception as e:
+                logging.error(f"Failed to open website {url}: {e}")
+                QMessageBox.warning(self, "Open Website", f"Failed to open website: {e}")
+        else:
+            QMessageBox.information(self, "Open Website", "No website URL available for this game.")
 
     def handle_open_folder_request(self, game_id: str):
+        """Open the game's installation folder in the file manager."""
         path = self.installer.get_game_path(game_id)
         if not path:
             QMessageBox.information(self, "Open Folder", "No installation path recorded for this title.")
@@ -712,27 +749,33 @@ class LauncherApp(QMainWindow):
             QMessageBox.warning(self, "Open Folder", "The recorded installation path no longer exists.")
             return
 
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+        try:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+            logging.info(f"Opened folder for {game_id}: {path}")
+        except Exception as e:
+            logging.error(f"Failed to open folder {path}: {e}")
+            QMessageBox.warning(self, "Open Folder", f"Failed to open folder: {e}")
 
     def refresh_games(self):
         self.refresh_game_list()
 
     def check_dependencies(self):
-        deps = ["umu-launcher", "wine", "steam", "flatpak", "java"]
-        results = self.installer.check_dependencies(deps)
+        """Check system dependencies and display results."""
+        results = self.installer.check_dependencies(DEFAULT_DEPENDENCIES)
 
         summary_lines = []
         for dep, installed in results.items():
-            status = "OK" if installed else "Missing"
+            status = "✓ OK" if installed else "✗ Missing"
             summary_lines.append(f"{dep}: {status}")
 
         QMessageBox.information(self, "Dependency Check", "\n".join(summary_lines))
 
     def view_logs(self):
+        """View launcher log file contents."""
         if LOG_FILE.exists():
             try:
-                content = LOG_FILE.read_text()
-            except Exception as exc:  # pragma: no cover - filesystem failure path
+                content = LOG_FILE.read_text(encoding='utf-8')
+            except Exception as exc:
                 QMessageBox.warning(self, "Logs", f"Failed to read log file: {exc}")
                 return
 
