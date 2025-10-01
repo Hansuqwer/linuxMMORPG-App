@@ -1,0 +1,165 @@
+games:
+  # === Classic Western MMORPGs ===
+  - name: "World of Warcraft - Warmane Icecrown"
+    path: "/home/username/Games/WoW-Warmane/Wow.exe"
+    server: "Warmane Icecrown (7x WotLK)"
+
+  - name: "World of Warcraft - Warmane Lordaeron"
+    path: "/home/username/Games/WoW-Warmane/Wow.exe"
+    server: "Warmane Lordaeron (1x Blizzlike)"
+
+  - name: "World of Warcraft - Turtle WoW"
+    path: "/home/username/Games/Turtle-WoW/WoW.exe"
+    server: "Turtle WoW (Vanilla+)"
+
+  - name: "World of Warcraft - ChromieCraft"
+    path: "/home/username/Games/ChromieCraft/WoW.exe"
+    server: "ChromieCraft (Progressive)"
+
+  - name: "Warhammer Online - Return of Reckoning"
+    path: "/home/username/Games/RoR/WAR.exe"
+    server: "Return of Reckoning"
+
+  - name: "EverQuest - Project 1999"
+    path: "/home/username/Games/EverQuest/eqgame.exe"
+    server: "Project 1999 Blue"
+
+  - name: "Star Wars: The Old Republic"
+    path: "/home/username/Games/SWTOR/swtor.exe"
+    server: "Official"
+
+  - name: "Lord of the Rings Online"
+    path: "/home/username/Games/LOTRO/lotroclient.exe"
+    server: "Official"
+
+  # === Asian MMORPGs ===
+  - name: "Lineage 2 - L2Essence"
+    path: "/home/username/Games/L2Essence/system/L2.exe"
+    server: "L2Essence (x20)"
+
+  - name: "Lineage 2 - Elmorelab"
+    path: "/home/username/Games/L2Elmorelab/system/L2.exe"
+    server: "Elmorelab Teon (C4 x1)"
+
+  - name: "Lineage 2 - L2Reborn"
+    path: "/home/username/Games/L2Reborn/system/L2.exe"
+    server: "L2Reborn (Interlude)"
+
+  - name: "Ragnarok Online - RevivalRO"
+    path: "/home/username/Games/RevivalRO/RevivalRO.exe"
+    server: "RevivalRO Freya (Renewal)"
+
+  - name: "Ragnarok Online - TalonRO"
+    path: "/home/username/Games/TalonRO/tRO.exe"
+    server: "TalonRO (Pre-renewal)"
+
+  - name: "Ragnarok Online - NovaRO"
+    path: "/home/username/Games/NovaRO/NovaRO.exe"
+    server: "NovaRO (Low-rate)"
+
+  - name: "Aion - GamezAion"
+    path: "/home/username/Games/Aion-Gamez/bin64/aion.bin"
+    server: "GamezAion (4.8)"
+
+  - name: "Aion - Elden Aion"
+    path: "/home/username/Games/Aion-Elden/bin32/aion.bin"
+    server: "Elden Aion (3.9 Classic)"
+
+  - name: "Perfect World"
+    path: "/home/username/Games/PerfectWorld/elementclient.exe"
+    server: "GM Perfect World"
+
+  - name: "Metin2"
+    path: "/home/username/Games/Metin2/metin2client.exe"
+    server: "Metin2 SG"
+
+  - name: "Silkroad Online - Legends"
+    path: "/home/username/Games/SRO-Legends/sro_client.exe"
+    server: "Legends Online"
+
+  - name: "Flyff"
+    path: "/home/username/Games/Flyff/Neuz.exe"
+    server: "Official"
+
+  - name: "Cabal Online - Moon Night"
+    path: "/home/username/Games/Cabal/cabal.exe"
+    server: "Moon Night Cabal"
+
+  - name: "MU Online"
+    path: "/home/username/Games/MU/main.exe"
+    server: "Community Server"
+
+  - name: "RF Online"
+    path: "/home/username/Games/RF_Online/RF.exe"
+    server: "Community Server"
+
+  - name: "Shaiya - Mortifera"
+    path: "/home/username/Games/Shaiya/game.exe"
+    server: "Shaiya Mortifera (EP 4.5)"
+
+  - name: "Tales of Pirates - Moonlight Haven"
+    path: "/home/username/Games/ToP/GameLauncher.exe"
+    server: "Moonlight Haven (3.0)"
+
+  # === Action MMORPGs ===
+  - name: "TERA - Menma's TERA"
+    path: "/home/username/Games/TERA-Menma/Binaries/TERA.exe"
+    server: "Menma's TERA (EU/RU)"
+
+  - name: "TERA - Starscape"
+    path: "/home/username/Games/TERA-Starscape/Binaries/TERA.exe"
+    server: "TERA Starscape (NA)"
+
+  - name: "Guild Wars 2"
+    path: "/home/username/Games/GuildWars2/Gw2-64.exe"
+    server: "Official"
+
+  - name: "ArcheAge - ArcheRage"
+    path: "/home/username/Games/ArcheRage/bin64/archeage.exe"
+    server: "ArcheRage (9.5)"
+
+  - name: "Vindictus"
+    path: "/home/username/Games/Vindictus/en-US/Vindictus.exe"
+    server: "Official"
+
+  - name: "Dragon Nest"
+    path: "/home/username/Games/DragonNest/DragonNest.exe"
+    server: "Community Server"
+
+  # === Story-Driven & F2P MMORPGs ===
+  - name: "Final Fantasy XIV"
+    path: "/home/username/Games/FFXIV/game/ffxiv_dx11.exe"
+    server: "Official (use XIVLauncher)"
+
+  - name: "Final Fantasy XI"
+    path: "/home/username/Games/FFXI/pol.exe"
+    server: "Official"
+
+  - name: "Phantasy Star Online - Ephinea"
+    path: "/home/username/Games/PSO-Ephinea/online.exe"
+    server: "Ephinea"
+
+  - name: "Dungeons & Dragons Online"
+    path: "/home/username/Games/DDO/dndclient.exe"
+    server: "Official"
+
+  - name: "Neverwinter"
+    path: "/home/username/Games/Neverwinter/Neverwinter.exe"
+    server: "Official"
+
+  - name: "DC Universe Online"
+    path: "/home/username/Games/DCUO/DCUO.exe"
+    server: "Official"
+
+  # === Native Linux MMORPGs ===
+  - name: "Albion Online (Native)"
+    path: "/home/username/Games/AlbionOnline/Albion-Online"
+    server: "Official (Native Linux)"
+
+  - name: "Old School RuneScape (Native)"
+    path: "/usr/bin/runelite"
+    server: "Official (RuneLite)"
+
+  - name: "RuneScape 3 (Native)"
+    path: "/usr/bin/runescape"
+    server: "Official (Native Client)"
