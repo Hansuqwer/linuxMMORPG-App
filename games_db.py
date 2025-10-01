@@ -54,20 +54,84 @@ GAMES_DATABASE = {
         "tested": True
     },
 
-    "everquest-p1999": {
-        "name": "EverQuest - Project 1999",
+    "everquest-p1999-green": {
+        "name": "EverQuest - Project 1999 Green",
         "genre": "Classic MMORPG",
-        "server": "Project 1999 Blue",
-        "population": "High (several hundred concurrent)",
-        "description": "Classic 1999 MMORPG experience with official Daybreak licensing",
+        "server": "Project 1999 Green (Velious-locked)",
+        "population": "Very High (1,000+ concurrent at peak)",
+        "description": "Most popular P99 server. Classic 1999-2001 era, locked at Velious expansion. Officially licensed by Daybreak.",
         "website": "https://project1999.com",
-        "client_download_url": "https://project1999.com/download",
+        "client_download_url": "https://archive.org/details/EverQuestTitanium",
         "install_type": "manual_download",
         "dependencies": ["umu-launcher", "wine", "d3dx9_43", "corefonts"],
         "executable": "eqgame.exe",
-        "install_notes": "Titanium client required. Edit eqclient.ini: VertexShaders=FALSE. Long load times (5-20 min) are normal.",
+        "install_notes": "Titanium client from Internet Archive. Apply P99 patches. Use p99-login-middlemand for Linux. Install to C:\\Everquest (not Program Files). Windowed Mode required, disable Vertex Shaders. Official Linux guide: wiki.project1999.com/EverQuest_in_Linux_Guide",
         "native": False,
         "tested": True
+    },
+
+    "everquest-p1999-blue": {
+        "name": "EverQuest - Project 1999 Blue",
+        "genre": "Classic MMORPG",
+        "server": "Project 1999 Blue (Full Classic)",
+        "population": "Medium (second most popular P99 server)",
+        "description": "Full classic progression through Velious. Established server with mature economy.",
+        "website": "https://project1999.com",
+        "client_download_url": "https://archive.org/details/EverQuestTitanium",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine", "d3dx9_43", "corefonts"],
+        "executable": "eqgame.exe",
+        "install_notes": "Same installation as Green server. Titanium client + P99 patches. Use p99-login-middlemand for server list fix. Long load times (5-20 min) normal.",
+        "native": False,
+        "tested": True
+    },
+
+    "everquest-p1999-red": {
+        "name": "EverQuest - Project 1999 Red",
+        "genre": "Classic MMORPG",
+        "server": "Project 1999 Red (PvP)",
+        "population": "Low (~50 concurrent average)",
+        "description": "PvP-focused classic EverQuest server. Teams, FFA PvP zones, classic ruleset.",
+        "website": "https://project1999.com",
+        "client_download_url": "https://archive.org/details/EverQuestTitanium",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine", "d3dx9_43", "corefonts"],
+        "executable": "eqgame.exe",
+        "install_notes": "Same installation as other P99 servers. Titanium client required. Smaller but dedicated PvP community.",
+        "native": False,
+        "tested": True
+    },
+
+    "everquest-quarm": {
+        "name": "EverQuest - Project Quarm",
+        "genre": "Classic MMORPG",
+        "server": "Project Quarm (Time-locked Progression)",
+        "population": "High (active, exact numbers undisclosed)",
+        "description": "Time-locked progression server stopping at Planes of Power. Classic 1x rates.",
+        "website": "https://projectquarm.com",
+        "client_download_url": "https://quarm.guide/installing-the-game",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine", "d3dx9_43", "corefonts"],
+        "executable": "eqgame.exe",
+        "install_notes": "Download TAKP v2.2 client + Quarm files from Discord #server-files. Install to root drive (not Program Files). Uses Titanium client - same Wine setup as P99.",
+        "native": False,
+        "tested": False
+    },
+
+    "everquest-ezserver": {
+        "name": "EverQuest - EZ Server",
+        "genre": "Classic MMORPG",
+        "server": "EZ Server (Custom High-Rate)",
+        "population": "Medium (active community)",
+        "description": "Custom high-rate progression with extensive custom content. MacroQuest supported/encouraged.",
+        "website": "https://ezserver.online",
+        "client_download_url": "http://wiki.ezserver.online/EZ_Server_Files",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine"],
+        "executable": "eqgame.exe",
+        "install_notes": "Requires Rain of Fear 2 (ROF2) client. Download EZ files from wiki and extract to main EQ directory. Different client than P99/Quarm.",
+        "native": False,
+        "tested": False
     },
 
     "swtor": {
@@ -103,6 +167,73 @@ GAMES_DATABASE = {
     },
 
     # === Asian MMORPGs ===
+
+    # Lineage 1
+    "lineage1-l15": {
+        "name": "Lineage 1 - L1.5",
+        "genre": "Classic MMORPG",
+        "server": "L1.5 (Never Wiped - 16+ years)",
+        "population": "High (huge and helpful community)",
+        "description": "16+ years running, NEVER WIPED. Mix of classic and custom content with new end-game dungeons. 99.999% uptime.",
+        "website": "https://www.l15server.com",
+        "client_download_url": "https://www.l15server.com",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine-staging"],
+        "executable": "lineage.exe",
+        "install_notes": "Long-term stable server. Active development and regular events. Register at lineagehd.com/register.html. Windows client works via Wine.",
+        "native": False,
+        "tested": False
+    },
+
+    "lineage1-l1justice": {
+        "name": "Lineage 1 - L1Justice",
+        "genre": "Classic MMORPG",
+        "server": "L1Justice (Updated Client)",
+        "population": "High (top private server)",
+        "description": "Classic Lineage 1 with updated 3.63 client. Described as top Lin1 private server.",
+        "website": "https://l1justice.com/lineage/",
+        "client_download_url": "https://l1justice.com/lineage/",
+        "install_type": "auto_installer",
+        "dependencies": ["umu-launcher", "wine"],
+        "executable": "jLauncher.exe",
+        "install_notes": "Download jLauncher.exe from website. Client version 3.63 (updated August 2025). May require Wine configuration.",
+        "native": False,
+        "tested": False
+    },
+
+    # Lineage 2
+    "l2-reborn": {
+        "name": "Lineage 2 - L2 Reborn",
+        "genre": "Fantasy MMORPG",
+        "server": "L2 Reborn Eternal Interlude (x10)",
+        "population": "Very High (massive server)",
+        "description": "Vanilla Interlude, no wipes since October 2019. No pay-to-win, strict anti-cheat. Midrate x10 server.",
+        "website": "https://l2reborn.org",
+        "client_download_url": "https://l2reborn.org",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine-staging", "winetricks", "d3dx9", "dotnet20", "vcrun2008"],
+        "executable": "system/L2.exe",
+        "install_notes": "Interlude client. Install dependencies: d3dx9, dotnet20, vcrun2008. DirectX 9.0c required. May need to change ALT key to SUPER in Linux. Use Lutris for easier setup.",
+        "native": False,
+        "tested": False
+    },
+
+    "l2-classic-club": {
+        "name": "Lineage 2 - L2 Classic Club",
+        "genre": "Fantasy MMORPG",
+        "server": "L2 Classic Club Dion (x3)",
+        "population": "Very High (thousands of players)",
+        "description": "7+ years active. Classic 2.0 European server. Free-to-play, international community. Stats at l2classic.club/stats",
+        "website": "https://l2classic.club",
+        "client_download_url": "https://l2classic.club",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine-staging", "winetricks", "d3dx9", "dotnet20", "vcrun2008"],
+        "executable": "system/L2.exe",
+        "install_notes": "Classic 2.0 client. Established long-term server. Active events and updates. Same Wine requirements as other L2 servers.",
+        "native": False,
+        "tested": False
+    },
+
     "l2-essence": {
         "name": "Lineage 2 - L2Essence",
         "genre": "Fantasy MMORPG",
@@ -140,29 +271,61 @@ GAMES_DATABASE = {
         "genre": "Anime MMORPG",
         "server": "RevivalRO Freya (Renewal)",
         "population": "High",
-        "description": "Episode 21 Renewal with 4th jobs. 30x/30x/10x rates.",
+        "description": "Episode 21 Renewal with 4th jobs. 30x/30x/10x rates. PC & Android support.",
         "website": "https://ragnarevival.com",
-        "client_download_url": "https://ragnarevival.com/download",
+        "client_download_url": "https://loki.ragnarevival.com/?module=main&action=downloads",
         "install_type": "auto_installer",
         "dependencies": ["umu-launcher", "wine-staging"],
         "executable": "RevivalRO.exe",
-        "install_notes": "Gepard Shield anti-cheat is Linux compatible.",
+        "install_notes": "WARNING: Anti-cheat compatibility unclear. If GameGuard is used, Wine/Proton may be blocked. Verify with community before installing. 2GB RAM, 2GB disk required.",
         "native": False,
-        "tested": True
+        "tested": False
     },
 
     "ragnarok-talonro": {
         "name": "Ragnarok Online - TalonRO",
         "genre": "Anime MMORPG",
         "server": "TalonRO (Pre-renewal)",
-        "population": "High",
-        "description": "Pre-renewal classic since 2007. Low-rate authentic.",
-        "website": "https://talonro.com",
-        "client_download_url": "https://talonro.com/download",
+        "population": "High (established since 2007)",
+        "description": "Pre-renewal classic, medium-rate, nostalgic with custom features. Friendly community.",
+        "website": "https://www.talonro.com",
+        "client_download_url": "https://www.talonro.com/download",
         "install_type": "auto_installer",
         "dependencies": ["umu-launcher", "wine"],
         "executable": "tRO.exe",
-        "install_notes": "Very stable on Linux. Long-running server.",
+        "install_notes": "WARNING: Gepard Shield anti-cheat BLOCKS Wine/VMs. NOT RECOMMENDED for Linux users. Server had Linux wiki guide but Gepard update broke compatibility.",
+        "native": False,
+        "tested": False
+    },
+
+    "ragnarok-originsro": {
+        "name": "Ragnarok Online - OriginsRO",
+        "genre": "Anime MMORPG",
+        "server": "OriginsRO (Classic 5x)",
+        "population": "Medium",
+        "description": "Classic rates 5x/5x/5x server. Check RateMyServer for current status.",
+        "website": "https://ratemyserver.net/index.php?page=detailedlistserver&serid=16761",
+        "client_download_url": "https://ratemyserver.net/index.php?page=detailedlistserver&serid=16761",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine"],
+        "executable": "Ragnarok.exe",
+        "install_notes": "WARNING: Check anti-cheat status with server community. If no GameGuard, should work with Wine. If GameGuard is present, Wine/Proton will be blocked.",
+        "native": False,
+        "tested": False
+    },
+
+    "ragnarok-uaro": {
+        "name": "Ragnarok Online - uaRO",
+        "genre": "Anime MMORPG",
+        "server": "uaRO (Private Server)",
+        "population": "Active",
+        "description": "Ragnarok Online private server with Linux compatibility. No GameGuard blocking.",
+        "website": "https://uaro.net/",
+        "client_download_url": "https://uaro.net/",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine"],
+        "executable": "Uaro.exe",
+        "install_notes": "Works on Linux via Wine/Proton. No anti-cheat blocking. Download client and patch from website.",
         "native": False,
         "tested": True
     },
@@ -183,18 +346,34 @@ GAMES_DATABASE = {
         "tested": True
     },
 
-    "rf-online": {
-        "name": "RF Online",
+    "rf-haunting": {
+        "name": "RF Online - RF Haunting",
         "genre": "Sci-Fi MMORPG",
-        "server": "Community Server",
-        "population": "Medium",
-        "description": "Three-race factional wars with massive chip wars",
-        "website": "https://rfonline.com",
-        "client_download_url": "https://rfonline.com/download",
+        "server": "RF Haunting (Private Server)",
+        "population": "High (active)",
+        "description": "Ultimate RF experience. Fantasy sci-fi 3D MMORPG with three-race factional wars and massive chip wars. Free to play.",
+        "website": "https://www.rfhaunting.com",
+        "client_download_url": "https://rfhaunting.com/download",
         "install_type": "manual_download",
         "dependencies": ["umu-launcher", "wine"],
         "executable": "RF.exe",
-        "install_notes": "Territorial control PvP, unique faction system.",
+        "install_notes": "Download client from website with installation guide. Works with Wine/Proton. CodeWeavers CrossOver and PlayOnLinux officially support RF Online. Wine 10.0 compatible.",
+        "native": False,
+        "tested": False
+    },
+
+    "rf-altruism": {
+        "name": "RF Online - RF Altruism",
+        "genre": "Sci-Fi MMORPG",
+        "server": "RF Altruism (EU Private Server)",
+        "population": "Medium (EU-focused)",
+        "description": "EU-focused RF Online server. Play without requiring money to enjoy and compete. Three-race territorial control PvP.",
+        "website": "https://www.rfaltruism.co.uk",
+        "client_download_url": "https://www.rfaltruism.co.uk",
+        "install_type": "manual_download",
+        "dependencies": ["umu-launcher", "wine"],
+        "executable": "RFAltruismLauncher.exe",
+        "install_notes": "Good choice for European players (time zone friendly). Same Wine/Proton compatibility as other RF servers. Extract and install via Wine.",
         "native": False,
         "tested": True
     },

@@ -1,0 +1,29 @@
+# Testing dependencies for Linux MMORPG Launcher
+
+# Core testing framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+
+# Mocking and test utilities
+pytest-timeout>=2.1.0
+pytest-xdist>=3.3.0  # For parallel test execution
+
+# Code coverage
+coverage>=7.3.0
+
+# GUI testing (optional - requires display)
+pytest-qt>=4.2.0
+
+# Type checking
+mypy>=1.5.0
+types-PyYAML>=6.0.12
+
+# Linting and code quality
+flake8>=6.1.0
+pylint>=2.17.0
+black>=23.7.0
+
+# Additional utilities
+freezegun>=1.2.0  # For time mocking
+responses>=0.23.0  # For HTTP mocking

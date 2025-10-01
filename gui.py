@@ -304,7 +304,13 @@ class GameDetailPanel(QWidget):
         self.install_btn.setText('Install' if install_info is None else 'Review Manual Steps')
         self.launch_btn.setEnabled(bool(install_info) and not pending_manual)
         self.uninstall_btn.setEnabled(bool(install_info))
-        self.open_folder_btn.setEnabled(bool(install_info) and install_info.get('path'))
+
+        # Only enable "Open Folder" for filesystem-based installs (not AUR/Flatpak)
+        has_filesystem_path = False
+        if install_info and install_info.get('path'):
+            path_str = install_info.get('path')
+            has_filesystem_path = not (path_str.startswith('aur://') or path_str.startswith('flatpak://'))
+        self.open_folder_btn.setEnabled(has_filesystem_path)
 
         self.clear_activity()
 
@@ -700,13 +706,24 @@ class LauncherApp(QMainWindow):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
-        if self.installer.uninstall_game(game_id):
+        result = self.installer.uninstall_game(game_id)
+
+        # Refresh installer to check actual package status
+        self.installer = GameInstaller()
+
+        # Refresh UI
+        self.refresh_game_list()
+
+        # Check if actually uninstalled
+        if game_id not in self.installer.installed_games:
             self.detail_panel.end_activity("Game removed")
-            self.refresh_game_list()
-            self.detail_panel.display_game(game_id, game_data, self.installer.installed_games.get(game_id))
+            self.detail_panel.display_game(game_id, game_data, None)
             QMessageBox.information(self, "Uninstall", f"{game_data['name']} has been removed.")
         else:
-            QMessageBox.critical(self, "Uninstall", "Failed to remove the game. Check permissions and try again.")
+            if result:
+                QMessageBox.information(self, "Uninstall", "Uninstall completed or cancelled.")
+            else:
+                QMessageBox.critical(self, "Uninstall", "Failed to remove the game. Check permissions and try again.")
 
     def handle_launch_request(self, game_id: str):
         game_data = get_game_by_id(game_id)

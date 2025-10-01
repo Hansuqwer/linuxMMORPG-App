@@ -49,6 +49,9 @@ class GameInstaller:
             format="%(asctime)s - %(levelname)s - %(message)s"
         )
 
+        # Auto-detect installed games
+        self._auto_detect_games()
+
     def _detect_aur_helper(self) -> Optional[str]:
         """Detect available AUR helper"""
         for helper in AUR_HELPERS:
@@ -81,6 +84,132 @@ class GameInstaller:
             logging.error(f"Failed to save installed games: {e}")
             return False
 
+    def _auto_detect_games(self):
+        """Auto-detect installed games in common directories"""
+        # Don't re-import games_db at module level to avoid circular dependency
+        # We'll import it here when needed
+        from games_db import GAMES_DATABASE
+
+        detected_count = 0
+
+        # Check AUR/system packages
+        aur_packages = {
+            'xivlauncher': 'ffxiv',
+            'runescape-launcher': 'rs3',
+        }
+
+        for pkg_name, game_id in aur_packages.items():
+            if game_id not in self.installed_games:
+                # Check if package is installed
+                result = subprocess.run(['pacman', '-Q', pkg_name], capture_output=True, text=True)
+                if result.returncode == 0:
+                    if game_id in GAMES_DATABASE:
+                        self.installed_games[game_id] = {
+                            'name': GAMES_DATABASE[game_id]['name'],
+                            'path': f'aur://{pkg_name}',
+                            'install_type': 'aur',
+                            'auto_detected': True
+                        }
+                        detected_count += 1
+                        logging.info(f"Auto-detected AUR package: {pkg_name} -> {game_id}")
+
+        # Check flatpak apps
+        flatpak_apps = {
+            'dev.goats.xivlauncher': 'ffxiv',
+            'com.jagex.RuneScape': 'rs3',
+        }
+
+        if shutil.which('flatpak'):
+            result = subprocess.run(['flatpak', 'list', '--app', '--columns=application'],
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                installed_flatpaks = result.stdout.strip().split('\n')
+                for app_id, game_id in flatpak_apps.items():
+                    if game_id not in self.installed_games and app_id in installed_flatpaks:
+                        if game_id in GAMES_DATABASE:
+                            self.installed_games[game_id] = {
+                                'name': GAMES_DATABASE[game_id]['name'],
+                                'path': f'flatpak://{app_id}',
+                                'install_type': 'flatpak',
+                                'auto_detected': True
+                            }
+                            detected_count += 1
+                            logging.info(f"Auto-detected Flatpak: {app_id} -> {game_id}")
+
+        # Scan common game directories for manual installs
+        search_dirs = [
+            self.games_dir,
+            Path.home() / "Games",
+            Path.home() / ".wine" / "drive_c" / "Program Files",
+            Path.home() / ".wine" / "drive_c" / "Program Files (x86)",
+            Path.home() / ".local" / "share" / "bottles",
+        ]
+
+        # Define patterns to detect specific games
+        # Format: game_id: [primary_exe_pattern, optional_path_marker]
+        game_patterns = {
+            'rf-altruism': ['RFAltruismLauncher.exe', 'altruism'],
+            'rf-haunting': ['RF.exe', 'haunting'],
+            'ragnarok-uaro': ['Uaro.exe', 'uaro'],
+            'ragnarok-revivalro': ['RevivalRO.exe'],
+            'ragnarok-talonro': ['tRO.exe'],
+            'ragnarok-originsro': ['Ragnarok.exe', 'origins'],
+            'lineage1-l15': ['lineage.exe'],
+            'lineage1-l1justice': ['jLauncher.exe'],
+            'l2-reborn': ['L2.exe', 'reborn'],
+            'l2-classic-club': ['L2.exe', 'classic'],
+            'l2-essence': ['L2.exe', 'essence'],
+            'everquest-p1999-green': ['eqgame.exe', 'p1999'],
+            'everquest-p1999-blue': ['eqgame.exe', 'p1999'],
+            'everquest-quarm': ['eqgame.exe', 'quarm'],
+            'everquest-ezserver': ['eqgame.exe', 'ezserver'],
+        }
+
+        for search_dir in search_dirs:
+            if not search_dir.exists():
+                continue
+
+            # Search up to 3 levels deep only
+            for game_id, patterns in game_patterns.items():
+                if game_id in self.installed_games:
+                    continue  # Already tracked
+
+                try:
+                    # Limit search depth to 3 levels to avoid scanning entire filesystem
+                    found = False
+                    for depth in range(4):  # 0, 1, 2, 3 levels
+                        if found:
+                            break
+                        pattern_path = "/".join(["*"] * depth) + "/" + patterns[0] if depth > 0 else patterns[0]
+
+                        for item in search_dir.glob(pattern_path):
+                            if item.is_file():
+                                # Check if additional pattern markers are present
+                                match = True
+                                if len(patterns) > 1:
+                                    parent_str = str(item.parent).lower()
+                                    if not any(p.lower() in parent_str for p in patterns[1:]):
+                                        match = False
+
+                                if match and game_id in GAMES_DATABASE:
+                                    self.installed_games[game_id] = {
+                                        'name': GAMES_DATABASE[game_id]['name'],
+                                        'path': str(item.parent),
+                                        'install_type': 'manual_download',
+                                        'auto_detected': True
+                                    }
+                                    detected_count += 1
+                                    logging.info(f"Auto-detected game: {game_id} at {item.parent}")
+                                    found = True
+                                    break  # Found this game, move to next
+                except Exception as e:
+                    logging.debug(f"Error scanning {search_dir}: {e}")
+                    continue
+
+        if detected_count > 0:
+            self._save_installed_games()
+            logging.info(f"Auto-detected {detected_count} games total")
+
     def is_installed(self, game_id: str) -> bool:
         """Check if game is installed"""
         return game_id in self.installed_games
@@ -88,7 +217,11 @@ class GameInstaller:
     def get_game_path(self, game_id: str) -> Optional[Path]:
         """Get installation path for a game"""
         if game_id in self.installed_games:
-            return Path(self.installed_games[game_id]['path'])
+            path_str = self.installed_games[game_id]['path']
+            # Don't return Path for AUR/Flatpak pseudo-paths
+            if path_str.startswith('aur://') or path_str.startswith('flatpak://'):
+                return None
+            return Path(path_str)
         return None
 
     def check_dependencies(self, dependencies: list) -> dict:
@@ -544,10 +677,42 @@ class GameInstaller:
         if game_info['install_type'] == 'aur':
             aur_pkg = game_info['path'].replace("aur://", "")
             try:
-                if self.aur_helper:
-                    subprocess.run([self.aur_helper, "-R", "--noconfirm", aur_pkg], check=True)
+                # Open terminal for user to confirm uninstall
+                terminals = ['konsole', 'gnome-terminal', 'xfce4-terminal', 'alacritty', 'kitty', 'xterm']
+                term_cmd = None
+                for term in terminals:
+                    if shutil.which(term):
+                        term_cmd = term
+                        break
+
+                if term_cmd:
+                    # Open terminal and run uninstall
+                    helper = self.aur_helper or "sudo pacman"
+                    if term_cmd == 'konsole':
+                        cmd = [term_cmd, '-e', 'sh', '-c', f'{helper} -R {aur_pkg}; echo "\nPress Enter to close..."; read; exit']
+                    elif term_cmd == 'gnome-terminal':
+                        cmd = [term_cmd, '--', 'sh', '-c', f'{helper} -R {aur_pkg}; echo "\nPress Enter to close..."; read; exit']
+                    elif term_cmd == 'xterm':
+                        cmd = [term_cmd, '-e', 'sh', '-c', f'{helper} -R {aur_pkg}; echo "\nPress Enter to close..."; read; exit']
+                    else:
+                        cmd = [term_cmd, '-e', 'sh', '-c', f'{helper} -R {aur_pkg}; echo "\nPress Enter to close..."; read; exit']
+
+                    result = subprocess.run(cmd)
+
+                    # Check if package was actually removed
+                    check = subprocess.run(['pacman', '-Q', aur_pkg], capture_output=True)
+                    if check.returncode != 0:
+                        # Package not found, so it was uninstalled
+                        del self.installed_games[game_id]
+                        self._save_installed_games()
+                        logging.info(f"Uninstalled AUR package: {game_id}")
+                        return True
+                    else:
+                        logging.info(f"AUR uninstall cancelled by user: {game_id}")
+                        return False
                 else:
-                    subprocess.run(["sudo", "pacman", "-R", "--noconfirm", aur_pkg], check=True)
+                    logging.error("No terminal emulator found for AUR uninstall")
+                    return False
             except Exception as e:
                 logging.error(f"Failed to uninstall AUR package: {e}")
                 return False
