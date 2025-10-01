@@ -2,6 +2,7 @@
 Game database registry for MMORPGs
 Contains metadata, installation instructions, and server information
 """
+from typing import Dict, Any, Optional
 
 GAMES_DATABASE = {
     # === Classic Western MMORPGs ===
@@ -692,26 +693,57 @@ GAMES_DATABASE = {
 }
 
 
-def get_all_games():
-    """Return list of all games"""
+def get_all_games() -> Dict[str, Dict[str, Any]]:
+    """
+    Return list of all games.
+    
+    Returns:
+        Dict mapping game IDs to game metadata
+    """
     return GAMES_DATABASE
 
 
-def get_game_by_id(game_id):
-    """Get specific game by ID"""
+def get_game_by_id(game_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get specific game by ID.
+    
+    Args:
+        game_id: Unique identifier for the game
+        
+    Returns:
+        Game metadata dict or None if not found
+    """
     return GAMES_DATABASE.get(game_id)
 
 
-def get_games_by_genre(genre):
-    """Filter games by genre"""
+def get_games_by_genre(genre: str) -> Dict[str, Dict[str, Any]]:
+    """
+    Filter games by genre.
+    
+    Args:
+        genre: Genre name to filter by (case-insensitive partial match)
+        
+    Returns:
+        Dict of games matching the genre
+    """
     return {k: v for k, v in GAMES_DATABASE.items() if genre.lower() in v['genre'].lower()}
 
 
-def get_native_games():
-    """Get only native Linux games"""
+def get_native_games() -> Dict[str, Dict[str, Any]]:
+    """
+    Get only native Linux games.
+    
+    Returns:
+        Dict of games with native Linux support
+    """
     return {k: v for k, v in GAMES_DATABASE.items() if v['native']}
 
 
-def get_tested_games():
-    """Get only tested/working games"""
+def get_tested_games() -> Dict[str, Dict[str, Any]]:
+    """
+    Get only tested/working games.
+    
+    Returns:
+        Dict of games that have been tested and verified
+    """
     return {k: v for k, v in GAMES_DATABASE.items() if v['tested']}
