@@ -19,6 +19,14 @@ logs/
 # Config (contains user-specific paths)
 .config/
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+coverage.xml
+
 # OS
 .DS_Store
 Thumbs.db
