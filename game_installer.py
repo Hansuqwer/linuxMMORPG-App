@@ -539,22 +539,159 @@ class GameInstaller:
                 return self._install_flatpak_game(game_id, flatpak_id, game_data['name'], progress_callback)
 
             elif install_type == "manual_download":
-                if progress_callback:
-                    progress_callback("Manual download required")
-                    progress_callback(f"Please download client from: {game_data['client_download_url']}")
-                    progress_callback(f"Then extract to: {game_dir}")
-                    progress_callback("Installation instructions:")
-                    progress_callback(game_data['install_notes'])
+                # Use the helper script for manual downloads
+                helper_script = Path(__file__).parent / "install_game_helper.sh"
 
-                # Save as "pending manual installation"
-                self.installed_games[game_id] = {
-                    'name': game_data['name'],
-                    'path': str(game_dir),
-                    'install_type': 'manual_download',
-                    'status': 'pending_manual'
-                }
-                self._save_installed_games()
-                return False
+                if helper_script.exists():
+                    if progress_callback:
+                        progress_callback(f"Launching installation helper for {game_data['name']}...")
+                        progress_callback("The helper will search for your downloaded installer in Home and Downloads folders.")
+
+                    # Detect terminal emulator
+                    term_cmd = None
+                    for term in TERMINAL_EMULATORS:
+                        if shutil.which(term):
+                            term_cmd = term
+                            break
+
+                    if term_cmd:
+                        # Run helper script in terminal
+                        if term_cmd == 'konsole':
+                            cmd = [term_cmd, '--noclose', '-e', 'bash', str(helper_script), game_id]
+                        elif term_cmd == 'gnome-terminal':
+                            cmd = [term_cmd, '--', 'bash', str(helper_script), game_id]
+                        elif term_cmd == 'xterm':
+                            cmd = [term_cmd, '-hold', '-e', 'bash', str(helper_script), game_id]
+                        else:
+                            cmd = [term_cmd, '-e', 'bash', str(helper_script), game_id]
+
+                        try:
+                            result = subprocess.run(cmd, capture_output=False, text=True)
+
+                            # Check if game was installed
+                            if self._auto_detect_games():
+                                if game_id in self.installed_games:
+                                    if progress_callback:
+                                        progress_callback("Game installed successfully!")
+                                    return True
+
+                            # Mark as pending manual if not fully installed
+                            self.installed_games[game_id] = {
+                                'name': game_data['name'],
+                                'path': str(game_dir),
+                                'install_type': 'manual_download',
+                                'status': 'pending_manual'
+                            }
+                            self._save_installed_games()
+
+                            if progress_callback:
+                                progress_callback("Installation helper completed. Please check the installation directory.")
+                            return False
+
+                        except Exception as e:
+                            logging.error(f"Failed to run installation helper: {e}")
+                            if progress_callback:
+                                progress_callback(f"Error running helper script: {e}")
+                    else:
+                        if progress_callback:
+                            progress_callback("No terminal emulator found. Please run install_game_helper.sh manually.")
+                        return False
+
+                # Fallback to old behavior if helper script doesn't exist
+                if progress_callback:
+                    progress_callback("Attempting to download game client...")
+                    progress_callback(f"Download URL: {game_data['client_download_url']}")
+
+                # Try to detect direct download URLs
+                download_url = game_data.get('client_download_url', '')
+
+                # Detect if this is a direct downloadable archive
+                is_direct_download = False
+                archive_name = None
+
+                # Check URL extensions
+                if any(download_url.endswith(ext) for ext in ['.zip', '.tar.gz', '.tar.bz2', '.7z', '.rar', '.RAR']):
+                    is_direct_download = True
+                    archive_name = download_url.split('/')[-1].split('?')[0]  # Remove query params
+                # Special handling for Google Drive
+                elif 'drive.google.com' in download_url or 'drive.usercontent.google.com' in download_url:
+                    is_direct_download = True
+                    archive_name = f"{game_id}_client.zip"  # Default name for Google Drive
+                # Special handling for known archive hosts
+                elif any(host in download_url for host in ['mega.nz', 'mediafire.com', 'zengeronline.com']):
+                    is_direct_download = True
+                    # Try to extract filename from URL
+                    url_parts = download_url.split('/')[-1].split('?')[0]
+                    if '.' in url_parts:
+                        archive_name = url_parts
+                    else:
+                        archive_name = f"{game_id}_client.zip"
+
+                if is_direct_download:
+                    if progress_callback:
+                        progress_callback("Direct download detected, downloading...")
+
+                    archive_file = game_dir / archive_name
+
+                    if self.download_file(download_url, archive_file, progress_callback):
+                        if progress_callback:
+                            progress_callback("Extracting game files...")
+
+                        # Extract archive
+                        try:
+                            if archive_name.endswith('.zip'):
+                                import zipfile
+                                with zipfile.ZipFile(archive_file, 'r') as zip_ref:
+                                    zip_ref.extractall(game_dir)
+                            elif archive_name.endswith(('.tar.gz', '.tar.bz2')):
+                                import tarfile
+                                with tarfile.open(archive_file, 'r:*') as tar_ref:
+                                    tar_ref.extractall(game_dir)
+                            elif archive_name.endswith('.7z'):
+                                subprocess.run(['7z', 'x', str(archive_file), f'-o{game_dir}'], check=True)
+                            elif archive_name.endswith(('.rar', '.RAR')):
+                                # Try unrar-free first, fallback to unrar
+                                try:
+                                    subprocess.run(['unrar', 'x', str(archive_file), str(game_dir)], check=True)
+                                except FileNotFoundError:
+                                    subprocess.run(['unrar-free', 'x', str(archive_file), str(game_dir)], check=True)
+
+                            # Clean up archive
+                            archive_file.unlink()
+
+                            self.installed_games[game_id] = {
+                                'name': game_data['name'],
+                                'path': str(game_dir),
+                                'install_type': 'manual_download'
+                            }
+                            self._save_installed_games()
+
+                            if progress_callback:
+                                progress_callback("Installation complete!")
+                            return True
+                        except Exception as e:
+                            logging.error(f"Failed to extract archive: {e}")
+                            if progress_callback:
+                                progress_callback(f"Extraction failed: {e}")
+                            return False
+                else:
+                    # No direct download - provide instructions
+                    if progress_callback:
+                        progress_callback("Manual download required (no direct download available)")
+                        progress_callback(f"Please download client from: {game_data['client_download_url']}")
+                        progress_callback(f"Then extract to: {game_dir}")
+                        progress_callback("Installation instructions:")
+                        progress_callback(game_data['install_notes'])
+
+                    # Save as "pending manual installation"
+                    self.installed_games[game_id] = {
+                        'name': game_data['name'],
+                        'path': str(game_dir),
+                        'install_type': 'manual_download',
+                        'status': 'pending_manual'
+                    }
+                    self._save_installed_games()
+                    return False
 
             elif install_type == "auto_installer":
                 if progress_callback:
@@ -565,11 +702,23 @@ class GameInstaller:
                 # Download installer
                 if self.download_file(game_data['client_download_url'], installer_file, progress_callback):
                     if progress_callback:
-                        progress_callback("Running installer via Wine...")
+                        progress_callback("Running installer via UMU launcher...")
 
-                    # Run installer with Wine
+                    # Find available UMU command
+                    umu_cmd = None
+                    for cmd in UMU_COMMANDS:
+                        if shutil.which(cmd):
+                            umu_cmd = cmd
+                            break
+
+                    if not umu_cmd:
+                        if progress_callback:
+                            progress_callback("UMU launcher not found, falling back to Wine...")
+                        umu_cmd = "wine"
+
+                    # Run installer with UMU or Wine
                     result = subprocess.run(
-                        ["wine", str(installer_file)],
+                        [umu_cmd, str(installer_file)],
                         cwd=game_dir,
                         capture_output=True,
                         text=True
@@ -588,6 +737,8 @@ class GameInstaller:
                         return True
                     else:
                         logging.error(f"Installer failed: {result.stderr}")
+                        if progress_callback:
+                            progress_callback(f"Installer failed. You may need to run manually: {umu_cmd} {installer_file}")
                         return False
 
             return False

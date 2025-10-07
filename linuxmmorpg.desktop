@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Linux MMORPG Launcher
+Comment=Enhanced MMORPG launcher for Linux
+Exec=/home/rickard/#HansuQWER/GIT/linuxMMORPG-App/linuxMMORPG-App/dist/linuxmmorpg
+Icon=applications-games
+Terminal=false
+Categories=Game;Utility;
+Keywords=mmorpg;games;launcher;

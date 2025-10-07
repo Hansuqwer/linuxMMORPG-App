@@ -258,7 +258,19 @@ class GameDetailPanel(QWidget):
         self.log_field = QPlainTextEdit()
         self.log_field.setReadOnly(True)
         self.log_field.setMaximumBlockCount(3000)
-        self.log_field.setMinimumHeight(200)
+        self.log_field.setMinimumHeight(250)
+        self.log_field.setStyleSheet("""
+            QPlainTextEdit {
+                background-color: #1e1e1e;
+                color: #00ff00;
+                font-family: 'Courier New', 'Consolas', monospace;
+                font-size: 12px;
+                border: 1px solid #3a3f51;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+        self.log_field.setPlaceholderText("Installation output will appear here...")
         activity_layout.addWidget(self.log_field)
 
         self.tabs.addTab(activity_tab, "Activity & Logs")
@@ -367,8 +379,11 @@ class GameDetailPanel(QWidget):
     def begin_activity(self, header: str):
         self.activity_label.setText(header)
         self.log_field.clear()
+        self.log_field.appendPlainText(f"=== {header} ===\n")
         self.progress_bar.show()
         self.progress_bar.setRange(0, 0)  # Busy indicator
+        # Auto-switch to Activity tab to show progress
+        self.tabs.setCurrentIndex(2)  # Index 2 is Activity & Logs tab
 
     def end_activity(self, footer: str = "Finished"):
         self.activity_label.setText(footer)
@@ -377,11 +392,15 @@ class GameDetailPanel(QWidget):
         self.progress_bar.setValue(0)
 
     def update_activity(self, message: str):
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
         self.activity_label.setText(message)
-        self.log_field.appendPlainText(message)
+        self.log_field.appendPlainText(f"[{timestamp}] {message}")
         cursor = self.log_field.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
         self.log_field.setTextCursor(cursor)
+        # Ensure the log scrolls to show latest message
+        self.log_field.ensureCursorVisible()
 
     # --- Signal emitters -------------------------------------------------
     def _emit_install(self):

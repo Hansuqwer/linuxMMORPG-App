@@ -1,0 +1,1 @@
+Lineage II scripts (Reborn removed).
