@@ -1,12 +1,26 @@
 # -*- mode: python ; coding: utf-8 -*-
+import sys
+from pathlib import Path
+from PyQt6 import QtCore
 
 block_cipher = None
+
+# Find Qt6 plugins directory
+qt_plugins_path = Path(QtCore.QLibraryInfo.path(QtCore.QLibraryInfo.LibraryPath.PluginsPath))
 
 a = Analysis(
     ['gui.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
+    binaries=[
+        # Include Qt platform plugins (critical for GUI rendering)
+        (str(qt_plugins_path / 'platforms'), 'PyQt6/Qt6/plugins/platforms'),
+        (str(qt_plugins_path / 'platformthemes'), 'PyQt6/Qt6/plugins/platformthemes'),
+    ],
+    datas=[
+        ('install_game_helper.sh', '.'),
+        ('install_knight_myko.sh', '.'),
+        ('install_silkroad_origin.sh', '.'),
+    ],
     hiddenimports=[
         'PyQt6.QtCore',
         'PyQt6.QtGui',

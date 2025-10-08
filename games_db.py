@@ -837,21 +837,6 @@ GAMES_DATABASE = {
         "tested": True
     },
 
-    "silkroad-origin": {
-        "name": "Silkroad Online - Origin",
-        "genre": "Action MMORPG",
-        "server": "Silkroad Origin (Official-like Experience)",
-        "population": "High",
-        "description": "One of the most popular Silkroad private servers. Cap 110, official-like rates with quality-of-life improvements. Active trading and thief system.",
-        "website": "https://sro-origin.com",
-        "client_download_url": "https://sro-origin.com/download",
-        "install_type": "manual_download",
-        "dependencies": ["umu-launcher", "wine-staging", "d3dx9", "vcrun2008", "corefonts"],
-        "executable": "sro_client.exe",
-        "install_notes": "Download client from website. Cap 110 server with balanced rates. Excellent Wine compatibility.",
-        "native": False,
-        "tested": True
-    },
 
     "silkroad-zenger": {
         "name": "Silkroad Online - Zenger",
@@ -910,11 +895,12 @@ GAMES_DATABASE = {
         "website": "https://ko-myko.com",
         "client_download_url": "https://ko-myko.com/downloads",
         "install_type": "manual_download",
-        "dependencies": ["umu-launcher", "wine-staging", "d3dx9", "vcrun2008", "corefonts"],
-        "executable": "KnightOnLine.exe",
-        "install_notes": "Visit ko-myko.com/downloads to download Client_KOMYKO.zip (883MB). Extract and run Client_KOMYKO.exe installer with Wine/UMU to install game. After installation completes, the game executable will be KnightOnLine.exe.",
+        "install_script": "install_knight_myko.sh",
+        "dependencies": ["umu-launcher", "wine-staging", "d3dx9", "vcrun2008", "corefonts", "cjkfonts"],
+        "executable": "Client_KOMYKO.exe",
+        "install_notes": "Download client_myko.zip or Client_KOMYKO.zip from ko-myko.com/downloads and save to Downloads folder. Auto-installer will extract the archive and set up Wine dependencies. Client_KOMYKO.exe is the game launcher (no separate installation needed).",
         "native": False,
-        "tested": False
+        "tested": True
     },
 
     # === Additional Games with Special Notes ===
