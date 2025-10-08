@@ -164,6 +164,13 @@ class GameInstaller:
             Path.home() / ".local" / "share" / "bottles",
         ]
 
+        # Add UMU Wine prefixes to search paths
+        umu_base = Path.home() / "Games" / "umu"
+        if umu_base.exists():
+            for prefix_dir in umu_base.glob("*/default/drive_c"):
+                if prefix_dir.is_dir():
+                    search_dirs.append(prefix_dir)
+
         # Define patterns to detect specific games
         # Format: game_id: [primary_exe_pattern, optional_path_marker]
         game_patterns = {
@@ -228,7 +235,7 @@ class GameInstaller:
                 'markers': ['ezserver']
             },
             'knight-myko': {
-                'executables': ['KnightOnLine.exe', 'Client_KOMYKO.exe'],
+                'executables': ['Launcher.exe', 'KnightOnLine.exe'],
                 'markers': ['knight', 'myko', 'komyko']
             },
         }
@@ -266,12 +273,24 @@ class GameInstaller:
                                         match = False
 
                                 if match and game_id in GAMES_DATABASE:
-                                    self.installed_games[game_id] = {
+                                    game_info = {
                                         'name': GAMES_DATABASE[game_id]['name'],
                                         'path': str(item.parent),
                                         'install_type': 'manual_download',
-                                        'auto_detected': True
+                                        'auto_detected': True,
+                                        'status': 'installed'
                                     }
+
+                                    # If game is in a Wine prefix, store prefix and client_exe
+                                    item_str = str(item)
+                                    if '/umu/' in item_str and '/drive_c/' in item_str:
+                                        # Extract prefix path (everything before /drive_c/)
+                                        prefix_path = item_str.split('/drive_c/')[0]
+                                        game_info['prefix'] = prefix_path
+                                        game_info['client_exe'] = str(item)
+                                        logger.info(f"Detected Wine prefix: {prefix_path}")
+
+                                    self.installed_games[game_id] = game_info
                                     detected_count += 1
                                     logger.info(f"Auto-detected game: {game_id} at {item.parent}")
                                     found = True
@@ -883,7 +902,11 @@ class GameInstaller:
 
         else:
             # Use UMU to launch
-            game_path = Path(game_info['path']) / game_data['executable']
+            # Prefer client_exe from installed_games.json if available
+            if 'client_exe' in game_info and game_info['client_exe']:
+                game_path = Path(game_info['client_exe'])
+            else:
+                game_path = Path(game_info['path']) / game_data['executable']
 
             if not game_path.exists():
                 logger.error(f"Game executable not found: {game_path}")
@@ -896,12 +919,20 @@ class GameInstaller:
                     if shutil.which(cmd):
                         umu_cmd = cmd
                         break
-                
+
                 if not umu_cmd:
                     logger.error("UMU launcher not found on system")
                     return False
 
-                subprocess.Popen([umu_cmd, str(game_path)])
+                # Set up environment for Wine prefix if available
+                env = None
+                if 'prefix' in game_info and game_info['prefix']:
+                    env = {**os.environ}
+                    env['WINEPREFIX'] = game_info['prefix']
+                    env['PROTONPATH'] = 'GE-Proton'
+                    logger.info(f"Using Wine prefix: {game_info['prefix']}")
+
+                subprocess.Popen([umu_cmd, str(game_path)], env=env)
                 logger.info(f"Launched {game_data['name']} via UMU")
                 return True
             except Exception as e:

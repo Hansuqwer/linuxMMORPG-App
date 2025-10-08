@@ -220,9 +220,34 @@ echo -e "${GREEN}[4/4]${NC} Looking for game executable..."
 GAME_EXE=$(find "$GAME_DIR" -maxdepth 3 -type f \( -iname "KnightOnLine.exe" -o -iname "Client_KOMYKO.exe" \) 2>/dev/null | head -1)
 
 if [ -n "$GAME_EXE" ]; then
-    echo -e "${GREEN}✓${NC} Game already installed!"
-    echo "  Executable: $GAME_EXE"
+    echo -e "${GREEN}✓${NC} Game executable found: $(basename "$GAME_EXE")"
     echo ""
+
+    # Check if Wine prefix is set up
+    if [ ! -d "$PREFIX/drive_c" ]; then
+        echo "Wine prefix not found. Setting up Wine environment..."
+
+        # Install Wine dependencies
+        echo "Installing Wine dependencies..."
+        echo "This may take a few minutes..."
+
+        # Initialize Wine prefix
+        echo "Initializing Wine prefix..."
+        WINEPREFIX="$PREFIX" PROTONPATH="GE-Proton" umu-run "" || true
+        sleep 2
+
+        # Install dependencies
+        echo "Installing DirectX, Visual C++ runtime, and fonts (English + CJK)..."
+        WINETRICKS="d3dx9 vcrun2008 corefonts liberation cjkfonts"
+        WINEPREFIX="$PREFIX" PROTONPATH="GE-Proton" umu-run winetricks -q $WINETRICKS || {
+            echo -e "${YELLOW}Warning:${NC} Some dependencies may have failed to install."
+            echo "Continuing anyway..."
+        }
+
+        echo -e "${GREEN}✓${NC} Dependencies installed"
+    else
+        echo "Wine prefix already configured."
+    fi
 
     # Register with launcher database
     if command -v python3 &> /dev/null; then
@@ -257,7 +282,7 @@ data["knight-myko"] = {
     "status": "installed",
     "prefix": prefix_path,
     "client_exe": client_exe,
-    "updated_at": datetime.utcnow().isoformat() + "Z"
+    "updated_at": datetime.now(datetime.UTC).isoformat()
 }
 
 installed_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -356,7 +381,7 @@ data["knight-myko"] = {
     "status": "installed",
     "prefix": prefix_path,
     "client_exe": client_exe,
-    "updated_at": datetime.utcnow().isoformat() + "Z"
+    "updated_at": datetime.now(datetime.UTC).isoformat()
 }
 
 installed_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
