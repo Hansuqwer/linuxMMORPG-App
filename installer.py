@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Constants
 LOG_FILE = Path("logs/installer.log")
-REQUIRED_PACKAGES = ["python-pyqt6", "faugus", "umu"]
+REQUIRED_PACKAGES = ["python-pyqt6", "umu"]
 
 # Ensure log directory exists
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)

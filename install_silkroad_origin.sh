@@ -169,11 +169,20 @@ fi
 
 # Install dependencies via winetricks
 echo -e "${GREEN}[4/5]${NC} Installing Wine dependencies..."
-WINETRICKS="d3dx9 vcrun2008 corefonts"
+echo "This may take a few minutes..."
+WINETRICKS="d3dx9 vcrun2008 corefonts liberation"
 
+# Initialize Wine prefix
+echo "Initializing Wine prefix..."
 WINEPREFIX="$PREFIX" PROTONPATH="GE-Proton" umu-run "" || true
 sleep 2
-WINEPREFIX="$PREFIX" PROTONPATH="GE-Proton" umu-run winetricks -q $WINETRICKS || true
+
+# Install dependencies
+echo "Installing DirectX, Visual C++ runtime, and fonts..."
+WINEPREFIX="$PREFIX" PROTONPATH="GE-Proton" umu-run winetricks -q $WINETRICKS || {
+    echo -e "${YELLOW}Warning:${NC} Some dependencies may have failed to install."
+    echo "Continuing anyway..."
+}
 
 echo -e "${GREEN}✓${NC} Dependencies installed"
 

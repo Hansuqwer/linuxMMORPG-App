@@ -4,6 +4,7 @@ Handles downloading, installing, and configuring MMORPGs with UMU launcher
 """
 
 import os
+import sys
 import subprocess
 import logging
 import json
@@ -14,14 +15,22 @@ import shutil
 
 # Constants
 DEFAULT_GAMES_DIR = Path.home() / "Games"
-CONFIG_DIR = Path.home() / ".config" / "mmo-launcher"
-INSTALLED_GAMES_FILE = CONFIG_DIR / "installed_games.json"
 LOG_DIR = Path("logs")
 LOG_FILE = LOG_DIR / "installer.log"
 
 AUR_HELPERS = ["yay", "paru", "pikaur", "trizen"]
 TERMINAL_EMULATORS = ["konsole", "gnome-terminal", "xfce4-terminal", "alacritty", "kitty", "xterm"]
 UMU_COMMANDS = ["umu-run", "umu"]
+
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+logger = logging.getLogger("game_installer")
+if not logger.handlers:
+    handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
 
 class GameInstaller:
@@ -30,24 +39,16 @@ class GameInstaller:
         self.games_dir = Path(games_dir) if games_dir else DEFAULT_GAMES_DIR
         self.games_dir.mkdir(parents=True, exist_ok=True)
 
-        self.config_dir = CONFIG_DIR
+        self.config_dir = Path.home() / ".config" / "mmo-launcher"
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
-        self.installed_games_file = INSTALLED_GAMES_FILE
+        self.installed_games_file = self.config_dir / "installed_games.json"
         self.installed_games = self._load_installed_games()
 
         # Detect AUR helper
         self.aur_helper = self._detect_aur_helper()
 
-        # Setup logging
         self.log_file = LOG_FILE
-        self.log_file.parent.mkdir(parents=True, exist_ok=True)
-
-        logging.basicConfig(
-            filename=self.log_file,
-            level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s"
-        )
 
         # Auto-detect installed games
         self._auto_detect_games()
@@ -56,7 +57,7 @@ class GameInstaller:
         """Detect available AUR helper"""
         for helper in AUR_HELPERS:
             if shutil.which(helper):
-                logging.info(f"Detected AUR helper: {helper}")
+                logger.info(f"Detected AUR helper: {helper}")
                 return helper
         return None
 
@@ -67,10 +68,10 @@ class GameInstaller:
                 with open(self.installed_games_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except json.JSONDecodeError as e:
-                logging.error(f"Failed to parse installed games file: {e}")
+                logger.error(f"Failed to parse installed games file: {e}")
                 return {}
             except Exception as e:
-                logging.error(f"Error loading installed games: {e}")
+                logger.error(f"Error loading installed games: {e}")
                 return {}
         return {}
 
@@ -81,7 +82,7 @@ class GameInstaller:
                 json.dump(self.installed_games, f, indent=2)
             return True
         except Exception as e:
-            logging.error(f"Failed to save installed games: {e}")
+            logger.error(f"Failed to save installed games: {e}")
             return False
 
     def _auto_detect_games(self):
@@ -98,20 +99,38 @@ class GameInstaller:
             'runescape-launcher': 'rs3',
         }
 
+        pacman_available = shutil.which('pacman') is not None
+        if not pacman_available:
+            logger.debug("pacman not found; skipping AUR auto-detection")
+
         for pkg_name, game_id in aur_packages.items():
-            if game_id not in self.installed_games:
-                # Check if package is installed
-                result = subprocess.run(['pacman', '-Q', pkg_name], capture_output=True, text=True)
-                if result.returncode == 0:
-                    if game_id in GAMES_DATABASE:
-                        self.installed_games[game_id] = {
-                            'name': GAMES_DATABASE[game_id]['name'],
-                            'path': f'aur://{pkg_name}',
-                            'install_type': 'aur',
-                            'auto_detected': True
-                        }
-                        detected_count += 1
-                        logging.info(f"Auto-detected AUR package: {pkg_name} -> {game_id}")
+            if not pacman_available or game_id in self.installed_games:
+                continue
+
+            try:
+                result = subprocess.run(
+                    ['pacman', '-Q', pkg_name],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+            except FileNotFoundError:
+                logger.debug("pacman became unavailable during auto-detection; aborting AUR scan")
+                pacman_available = False
+                break
+            except Exception as exc:
+                logger.debug(f"Error querying pacman for {pkg_name}: {exc}")
+                continue
+
+            if result.returncode == 0 and game_id in GAMES_DATABASE:
+                self.installed_games[game_id] = {
+                    'name': GAMES_DATABASE[game_id]['name'],
+                    'path': f'aur://{pkg_name}',
+                    'install_type': 'aur',
+                    'auto_detected': True
+                }
+                detected_count += 1
+                logger.info(f"Auto-detected AUR package: {pkg_name} -> {game_id}")
 
         # Check flatpak apps
         flatpak_apps = {
@@ -134,7 +153,7 @@ class GameInstaller:
                                 'auto_detected': True
                             }
                             detected_count += 1
-                            logging.info(f"Auto-detected Flatpak: {app_id} -> {game_id}")
+                            logger.info(f"Auto-detected Flatpak: {app_id} -> {game_id}")
 
         # Scan common game directories for manual installs
         search_dirs = [
@@ -148,21 +167,70 @@ class GameInstaller:
         # Define patterns to detect specific games
         # Format: game_id: [primary_exe_pattern, optional_path_marker]
         game_patterns = {
-            'rf-altruism': ['RFAltruismLauncher.exe', 'altruism'],
-            'rf-haunting': ['RF.exe', 'haunting'],
-            'ragnarok-uaro': ['Uaro.exe', 'uaro'],
-            'ragnarok-revivalro': ['RevivalRO.exe'],
-            'ragnarok-talonro': ['tRO.exe'],
-            'ragnarok-originsro': ['Ragnarok.exe', 'origins'],
-            'lineage1-l15': ['lineage.exe'],
-            'lineage1-l1justice': ['jLauncher.exe'],
-            'l2-reborn': ['L2.exe', 'reborn'],
-            'l2-classic-club': ['L2.exe', 'classic'],
-            'l2-essence': ['L2.exe', 'essence'],
-            'everquest-p1999-green': ['eqgame.exe', 'p1999'],
-            'everquest-p1999-blue': ['eqgame.exe', 'p1999'],
-            'everquest-quarm': ['eqgame.exe', 'quarm'],
-            'everquest-ezserver': ['eqgame.exe', 'ezserver'],
+            'rf-altruism': {
+                'executables': ['RFAltruismLauncher.exe'],
+                'markers': ['altruism']
+            },
+            'rf-haunting': {
+                'executables': ['RF.exe'],
+                'markers': ['haunting']
+            },
+            'ragnarok-uaro': {
+                'executables': ['Uaro.exe'],
+                'markers': ['uaro']
+            },
+            'ragnarok-revivalro': {
+                'executables': ['RevivalRO.exe'],
+                'markers': []
+            },
+            'ragnarok-talonro': {
+                'executables': ['tRO.exe'],
+                'markers': []
+            },
+            'ragnarok-originsro': {
+                'executables': ['Ragnarok.exe'],
+                'markers': ['origins']
+            },
+            'lineage1-l15': {
+                'executables': ['lineage.exe'],
+                'markers': []
+            },
+            'lineage1-l1justice': {
+                'executables': ['jLauncher.exe'],
+                'markers': []
+            },
+            'l2-reborn': {
+                'executables': ['L2.exe'],
+                'markers': ['reborn']
+            },
+            'l2-classic-club': {
+                'executables': ['L2.exe'],
+                'markers': ['classic']
+            },
+            'l2-essence': {
+                'executables': ['L2.exe'],
+                'markers': ['essence']
+            },
+            'everquest-p1999-green': {
+                'executables': ['eqgame.exe'],
+                'markers': ['p1999']
+            },
+            'everquest-p1999-blue': {
+                'executables': ['eqgame.exe'],
+                'markers': ['p1999']
+            },
+            'everquest-quarm': {
+                'executables': ['eqgame.exe'],
+                'markers': ['quarm']
+            },
+            'everquest-ezserver': {
+                'executables': ['eqgame.exe'],
+                'markers': ['ezserver']
+            },
+            'knight-myko': {
+                'executables': ['KnightOnLine.exe', 'Client_KOMYKO.exe'],
+                'markers': ['knight', 'myko', 'komyko']
+            },
         }
 
         for search_dir in search_dirs:
@@ -170,25 +238,31 @@ class GameInstaller:
                 continue
 
             # Search up to 3 levels deep only
-            for game_id, patterns in game_patterns.items():
+            for game_id, pattern_info in game_patterns.items():
                 if game_id in self.installed_games:
                     continue  # Already tracked
 
                 try:
+                    exe_patterns = pattern_info.get('executables', [])
+                    markers = [marker.lower() for marker in pattern_info.get('markers', [])]
+
                     # Limit search depth to 3 levels to avoid scanning entire filesystem
                     found = False
                     for depth in range(4):  # 0, 1, 2, 3 levels
                         if found:
                             break
-                        pattern_path = "/".join(["*"] * depth) + "/" + patterns[0] if depth > 0 else patterns[0]
 
-                        for item in search_dir.glob(pattern_path):
-                            if item.is_file():
-                                # Check if additional pattern markers are present
+                        for exe_pattern in exe_patterns:
+                            pattern_path = "/".join(["*"] * depth) + "/" + exe_pattern if depth > 0 else exe_pattern
+
+                            for item in search_dir.glob(pattern_path):
+                                if not item.is_file():
+                                    continue
+
                                 match = True
-                                if len(patterns) > 1:
+                                if markers:
                                     parent_str = str(item.parent).lower()
-                                    if not any(p.lower() in parent_str for p in patterns[1:]):
+                                    if not any(marker in parent_str for marker in markers):
                                         match = False
 
                                 if match and game_id in GAMES_DATABASE:
@@ -199,16 +273,19 @@ class GameInstaller:
                                         'auto_detected': True
                                     }
                                     detected_count += 1
-                                    logging.info(f"Auto-detected game: {game_id} at {item.parent}")
+                                    logger.info(f"Auto-detected game: {game_id} at {item.parent}")
                                     found = True
-                                    break  # Found this game, move to next
+                                    break
+
+                            if found:
+                                break
                 except Exception as e:
-                    logging.debug(f"Error scanning {search_dir}: {e}")
+                    logger.debug(f"Error scanning {search_dir}: {e}")
                     continue
 
         if detected_count > 0:
             self._save_installed_games()
-            logging.info(f"Auto-detected {detected_count} games total")
+            logger.info(f"Auto-detected {detected_count} games total")
 
     def is_installed(self, game_id: str) -> bool:
         """Check if game is installed"""
@@ -279,20 +356,20 @@ class GameInstaller:
                 self._save_installed_games()
                 if progress_callback:
                     progress_callback("Installation complete!")
-                logging.info(f"Installed {game_name} via Flatpak")
+                logger.info(f"Installed {game_name} via Flatpak")
                 return True
             else:
-                logging.error(f"Flatpak install failed: {result.stderr}")
+                logger.error(f"Flatpak install failed: {result.stderr}")
                 if progress_callback:
                     progress_callback(f"Flatpak installation failed: {result.stderr}")
                 return False
         except FileNotFoundError:
-            logging.error("Flatpak not found on system")
+            logger.error("Flatpak not found on system")
             if progress_callback:
                 progress_callback("Error: Flatpak is not installed")
             return False
         except Exception as e:
-            logging.error(f"Unexpected error installing Flatpak: {e}")
+            logger.error(f"Unexpected error installing Flatpak: {e}")
             if progress_callback:
                 progress_callback(f"Installation error: {e}")
             return False
@@ -322,7 +399,7 @@ class GameInstaller:
         elif shutil.which("dnf"):
             pkg_manager = "dnf"
         else:
-            logging.error("No supported package manager found")
+            logger.error("No supported package manager found")
             return False
 
         # Map dependencies to package names
@@ -375,16 +452,16 @@ class GameInstaller:
                 result = subprocess.run(cmd, capture_output=True, text=True)
 
                 if result.returncode == 0:
-                    logging.info(f"Dependencies installed: {', '.join(packages)}")
+                    logger.info(f"Dependencies installed: {', '.join(packages)}")
                     if progress_callback:
                         progress_callback("Dependencies installed successfully")
                     return True
                 else:
-                    logging.error(f"Failed to install dependencies: {result.stderr}")
+                    logger.error(f"Failed to install dependencies: {result.stderr}")
                     return False
 
             except Exception as e:
-                logging.error(f"Error installing dependencies: {e}")
+                logger.error(f"Error installing dependencies: {e}")
                 return False
 
         return True
@@ -402,11 +479,11 @@ class GameInstaller:
             bool: True if download was successful
         """
         if not url or not isinstance(url, str):
-            logging.error("Invalid URL provided for download")
+            logger.error("Invalid URL provided for download")
             return False
         
         if not url.startswith(('http://', 'https://', 'ftp://')):
-            logging.error(f"Invalid URL scheme: {url}")
+            logger.error(f"Invalid URL scheme: {url}")
             if progress_callback:
                 progress_callback(f"Invalid URL: {url}")
             return False
@@ -416,17 +493,17 @@ class GameInstaller:
 
         try:
             urllib.request.urlretrieve(url, dest)
-            logging.info(f"Downloaded {url} to {dest}")
+            logger.info(f"Downloaded {url} to {dest}")
             if progress_callback:
                 progress_callback(f"Download complete: {dest.name}")
             return True
         except urllib.error.URLError as e:
-            logging.error(f"URL error downloading {url}: {e}")
+            logger.error(f"URL error downloading {url}: {e}")
             if progress_callback:
                 progress_callback(f"Download failed: Network error")
             return False
         except Exception as e:
-            logging.error(f"Failed to download {url}: {e}")
+            logger.error(f"Failed to download {url}: {e}")
             if progress_callback:
                 progress_callback(f"Download failed: {e}")
             return False
@@ -515,12 +592,12 @@ class GameInstaller:
                                 progress_callback("Installation complete!")
                             return True
                         else:
-                            logging.error(f"AUR install failed in terminal: {result.stderr}")
+                            logger.error(f"AUR install failed in terminal: {result.stderr}")
                             if progress_callback:
                                 progress_callback(f"AUR installation cancelled or failed: {result.stderr}\nTrying Flatpak...")
                             # Fall through to Flatpak
                     else:
-                        logging.error("No terminal emulator found for AUR installation")
+                        logger.error("No terminal emulator found for AUR installation")
                         if progress_callback:
                             progress_callback("No terminal found, trying Flatpak...")
                         # Fall through to Flatpak
@@ -540,7 +617,20 @@ class GameInstaller:
 
             elif install_type == "manual_download":
                 # Use the helper script for manual downloads
-                helper_script = Path(__file__).parent / "install_game_helper.sh"
+                # Check if running as PyInstaller bundle
+                # Check if game has a specific install script
+                if 'install_script' in game_data:
+                    script_name = game_data['install_script']
+                else:
+                    script_name = "install_game_helper.sh"
+
+                if getattr(sys, 'frozen', False):
+                    # Running as compiled executable
+                    bundle_dir = Path(sys._MEIPASS)
+                    helper_script = bundle_dir / script_name
+                else:
+                    # Running as script
+                    helper_script = Path(__file__).parent / script_name
 
                 if helper_script.exists():
                     if progress_callback:
@@ -566,14 +656,14 @@ class GameInstaller:
                             cmd = [term_cmd, '-e', 'bash', str(helper_script), game_id]
 
                         try:
-                            result = subprocess.run(cmd, capture_output=False, text=True)
+                            subprocess.run(cmd, capture_output=False, text=True)
 
-                            # Check if game was installed
-                            if self._auto_detect_games():
-                                if game_id in self.installed_games:
-                                    if progress_callback:
-                                        progress_callback("Game installed successfully!")
-                                    return True
+                            # Refresh auto-detected installs after helper execution
+                            self._auto_detect_games()
+                            if game_id in self.installed_games and self.installed_games[game_id].get('status') != 'pending_manual':
+                                if progress_callback:
+                                    progress_callback("Game installed successfully!")
+                                return True
 
                             # Mark as pending manual if not fully installed
                             self.installed_games[game_id] = {
@@ -589,7 +679,7 @@ class GameInstaller:
                             return False
 
                         except Exception as e:
-                            logging.error(f"Failed to run installation helper: {e}")
+                            logger.error(f"Failed to run installation helper: {e}")
                             if progress_callback:
                                 progress_callback(f"Error running helper script: {e}")
                     else:
@@ -670,7 +760,7 @@ class GameInstaller:
                                 progress_callback("Installation complete!")
                             return True
                         except Exception as e:
-                            logging.error(f"Failed to extract archive: {e}")
+                            logger.error(f"Failed to extract archive: {e}")
                             if progress_callback:
                                 progress_callback(f"Extraction failed: {e}")
                             return False
@@ -736,7 +826,7 @@ class GameInstaller:
                             progress_callback("Installation complete!")
                         return True
                     else:
-                        logging.error(f"Installer failed: {result.stderr}")
+                        logger.error(f"Installer failed: {result.stderr}")
                         if progress_callback:
                             progress_callback(f"Installer failed. You may need to run manually: {umu_cmd} {installer_file}")
                         return False
@@ -744,7 +834,7 @@ class GameInstaller:
             return False
 
         except Exception as e:
-            logging.error(f"Installation error for {game_id}: {e}")
+            logger.error(f"Installation error for {game_id}: {e}")
             if progress_callback:
                 progress_callback(f"Installation error: {e}")
             return False
@@ -752,7 +842,7 @@ class GameInstaller:
     def launch_game(self, game_id: str, game_data: dict) -> bool:
         """Launch a game using UMU"""
         if game_id not in self.installed_games:
-            logging.error(f"Game {game_id} not installed")
+            logger.error(f"Game {game_id} not installed")
             return False
 
         game_info = self.installed_games[game_id]
@@ -766,29 +856,29 @@ class GameInstaller:
                 if 'launch_command' in game_data:
                     launch_cmd = game_data['launch_command']
                     subprocess.Popen(launch_cmd, shell=True)
-                    logging.info(f"Launched {game_data['name']} via AUR package")
+                    logger.info(f"Launched {game_data['name']} via AUR package")
                     return True
                 else:
                     # Try common executable names
                     if shutil.which(aur_pkg):
                         subprocess.Popen([aur_pkg])
-                        logging.info(f"Launched {game_data['name']} via AUR package")
+                        logger.info(f"Launched {game_data['name']} via AUR package")
                         return True
                     else:
-                        logging.error(f"Executable not found for AUR package: {aur_pkg}")
+                        logger.error(f"Executable not found for AUR package: {aur_pkg}")
                         return False
             except Exception as e:
-                logging.error(f"Failed to launch AUR package: {e}")
+                logger.error(f"Failed to launch AUR package: {e}")
                 return False
 
         elif game_info['install_type'] == 'flatpak':
             flatpak_id = game_info['path'].replace("flatpak://", "")
             try:
                 subprocess.Popen(["flatpak", "run", flatpak_id])
-                logging.info(f"Launched {game_data['name']} via Flatpak")
+                logger.info(f"Launched {game_data['name']} via Flatpak")
                 return True
             except Exception as e:
-                logging.error(f"Failed to launch via Flatpak: {e}")
+                logger.error(f"Failed to launch via Flatpak: {e}")
                 return False
 
         else:
@@ -796,7 +886,7 @@ class GameInstaller:
             game_path = Path(game_info['path']) / game_data['executable']
 
             if not game_path.exists():
-                logging.error(f"Game executable not found: {game_path}")
+                logger.error(f"Game executable not found: {game_path}")
                 return False
 
             try:
@@ -808,14 +898,14 @@ class GameInstaller:
                         break
                 
                 if not umu_cmd:
-                    logging.error("UMU launcher not found on system")
+                    logger.error("UMU launcher not found on system")
                     return False
 
                 subprocess.Popen([umu_cmd, str(game_path)])
-                logging.info(f"Launched {game_data['name']} via UMU")
+                logger.info(f"Launched {game_data['name']} via UMU")
                 return True
             except Exception as e:
-                logging.error(f"Failed to launch via UMU: {e}")
+                logger.error(f"Failed to launch via UMU: {e}")
                 return False
 
     def uninstall_game(self, game_id: str) -> bool:
@@ -827,6 +917,10 @@ class GameInstaller:
 
         if game_info['install_type'] == 'aur':
             aur_pkg = game_info['path'].replace("aur://", "")
+            pacman_available = shutil.which('pacman') is not None
+            if not (self.aur_helper or pacman_available):
+                logger.error("No AUR helper or pacman available for AUR uninstall")
+                return False
             try:
                 # Open terminal for user to confirm uninstall
                 terminals = ['konsole', 'gnome-terminal', 'xfce4-terminal', 'alacritty', 'kitty', 'xterm']
@@ -848,24 +942,33 @@ class GameInstaller:
                     else:
                         cmd = [term_cmd, '-e', 'sh', '-c', f'{helper} -R {aur_pkg}; echo "\nPress Enter to close..."; read; exit']
 
-                    result = subprocess.run(cmd)
+                    subprocess.run(cmd)
 
                     # Check if package was actually removed
-                    check = subprocess.run(['pacman', '-Q', aur_pkg], capture_output=True)
-                    if check.returncode != 0:
+                    removal_confirmed = False
+                    if pacman_available:
+                        try:
+                            check = subprocess.run(['pacman', '-Q', aur_pkg], capture_output=True, check=False)
+                            removal_confirmed = check.returncode != 0
+                        except Exception as exc:
+                            logger.debug(f"Failed to verify pacman removal for {aur_pkg}: {exc}")
+                    else:
+                        removal_confirmed = True  # Assume removed when helper runs without pacman verification
+
+                    if removal_confirmed:
                         # Package not found, so it was uninstalled
                         del self.installed_games[game_id]
                         self._save_installed_games()
-                        logging.info(f"Uninstalled AUR package: {game_id}")
+                        logger.info(f"Uninstalled AUR package: {game_id}")
                         return True
                     else:
-                        logging.info(f"AUR uninstall cancelled by user: {game_id}")
+                        logger.info(f"AUR uninstall cancelled by user: {game_id}")
                         return False
                 else:
-                    logging.error("No terminal emulator found for AUR uninstall")
+                    logger.error("No terminal emulator found for AUR uninstall")
                     return False
             except Exception as e:
-                logging.error(f"Failed to uninstall AUR package: {e}")
+                logger.error(f"Failed to uninstall AUR package: {e}")
                 return False
 
         elif game_info['install_type'] == 'flatpak':
@@ -873,7 +976,7 @@ class GameInstaller:
             try:
                 subprocess.run(["flatpak", "uninstall", "-y", flatpak_id], check=True)
             except Exception as e:
-                logging.error(f"Failed to uninstall Flatpak: {e}")
+                logger.error(f"Failed to uninstall Flatpak: {e}")
                 return False
         else:
             # Remove game directory
@@ -885,5 +988,5 @@ class GameInstaller:
         del self.installed_games[game_id]
         self._save_installed_games()
 
-        logging.info(f"Uninstalled game: {game_id}")
+        logger.info(f"Uninstalled game: {game_id}")
         return True
