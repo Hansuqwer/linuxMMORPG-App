@@ -218,13 +218,9 @@ class GameInstaller:
                 'executables': ['L2.exe'],
                 'markers': ['essence']
             },
-            'everquest-p1999-green': {
-                'executables': ['eqgame.exe'],
-                'markers': ['p1999']
-            },
-            'everquest-p1999-blue': {
-                'executables': ['eqgame.exe'],
-                'markers': ['p1999']
+            'everquest-p1999': {
+                'executables': ['Launch Titanium.bat', 'eqgame.exe'],
+                'markers': ['everquest']
             },
             'everquest-quarm': {
                 'executables': ['eqgame.exe'],
