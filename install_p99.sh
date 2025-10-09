@@ -136,6 +136,25 @@ if [ -f "$TEMP_DIR/p99patches.zip" ]; then
     echo "Applying latest P99 patches to game directory..."
     unzip -o "$TEMP_DIR/p99patches.zip" -d "$EQ_INSTALL_DIR"
     echo "Latest P99 patches applied!"
+
+    # Verify critical files exist (antivirus sometimes deletes dsetup.dll)
+    echo "Verifying critical game files..."
+    if [ ! -f "$EQ_INSTALL_DIR/dsetup.dll" ]; then
+        echo ""
+        echo "WARNING: dsetup.dll is missing!"
+        echo "This file is often deleted by antivirus software (false positive)."
+        echo ""
+        echo "To fix this:"
+        echo "1. Add '$EQ_INSTALL_DIR' to your antivirus exclusions/whitelist"
+        echo "2. Re-run this installer, or manually extract P99FilesV61.zip to:"
+        echo "   $EQ_INSTALL_DIR"
+        echo ""
+        echo "The game may not launch correctly without this file!"
+        echo ""
+        read -p "Press Enter to acknowledge and continue..."
+    else
+        echo "All critical files verified!"
+    fi
 else
     echo "Using P99 patches from combined archive (may be older version)"
 fi
