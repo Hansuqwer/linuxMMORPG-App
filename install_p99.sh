@@ -434,7 +434,7 @@ if [ "$SKIP_INSTALL" != "1" ]; then
     done
 
     echo ""
-    echo "Step 5/6: Launching EverQuest Titanium installer..."
+    echo "Step 5/6: Manual EverQuest Titanium Installation"
     echo "╔════════════════════════════════════════════════════════════════╗"
     echo "║                        IMPORTANT!                              ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
@@ -451,14 +451,26 @@ if [ "$SKIP_INSTALL" != "1" ]; then
     echo "║    G: -> CD4  |  H: -> CD5                                     ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
-    read -p "Press Enter to start setup.exe from CD1..."
-
-    (cd "$MOUNT_BASE/cd1" && WINEPREFIX="$WINEPREFIX" PROTONPATH="$PROTONPATH" umu-run setup.exe)
-
+    echo "ISOs are mounted at:"
+    echo "  CD1: $MOUNT_BASE/cd1"
+    echo "  CD2: $MOUNT_BASE/cd2"
+    echo "  CD3: $MOUNT_BASE/cd3"
+    echo "  CD4: $MOUNT_BASE/cd4"
+    echo "  CD5: $MOUNT_BASE/cd5"
     echo ""
-    echo "Installation process completed. ISOs remain mounted for verification."
+    echo "To install, open a NEW terminal and run:"
     echo ""
-    read -p "Press Enter to continue to patch download..."
+    echo "  cd $MOUNT_BASE/cd1"
+    echo "  WINEPREFIX=\"$WINEPREFIX\" wine setup.exe"
+    echo ""
+    echo "OR if wine doesn't work:"
+    echo ""
+    echo "  cd $MOUNT_BASE/cd1"
+    echo "  WINEPREFIX=\"$WINEPREFIX\" PROTONPATH=\"GE-Proton\" umu-run setup.exe &"
+    echo ""
+    echo "When the installer finishes and all windows are closed, come back here."
+    echo ""
+    read -p "Press Enter AFTER you have completed the installation..."
 else
     echo ""
     echo "Skip flag detected (SKIP_INSTALL=1). Reusing existing EverQuest installation."
