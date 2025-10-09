@@ -117,6 +117,25 @@ else
         rmdir "$CLIENT_SUBDIR" 2>/dev/null || true
         CLIENT_SUBDIR="$GAME_DIR"
     fi
+
+    # Verify critical files exist after extraction (antivirus sometimes deletes dsetup.dll)
+    echo "Verifying critical game files..."
+    if [ ! -f "$CLIENT_SUBDIR/dsetup.dll" ]; then
+        echo ""
+        echo "WARNING: dsetup.dll is missing from client!"
+        echo "This file is often deleted by antivirus software (false positive)."
+        echo ""
+        echo "To fix this:"
+        echo "1. Add '$CLIENT_SUBDIR' to your antivirus exclusions/whitelist"
+        echo "2. Re-run this installer, or manually extract the client ZIP to:"
+        echo "   $CLIENT_SUBDIR"
+        echo ""
+        echo "The game may not launch correctly without this file!"
+        echo ""
+        read -p "Press Enter to acknowledge and continue..."
+    else
+        echo "All critical files verified!"
+    fi
 fi
 
 # Extract patcher to game directory
@@ -126,6 +145,25 @@ if [ -f "$PATCHER_PATH" ]; then
     if command -v unzip >/dev/null 2>&1; then
         unzip -q -o "$PATCHER_PATH" -d "$CLIENT_SUBDIR"
         echo "Patcher extracted successfully to $CLIENT_SUBDIR!"
+
+        # Verify critical files exist (antivirus sometimes deletes dsetup.dll)
+        echo "Verifying critical game files..."
+        if [ ! -f "$CLIENT_SUBDIR/dsetup.dll" ]; then
+            echo ""
+            echo "WARNING: dsetup.dll is missing!"
+            echo "This file is often deleted by antivirus software (false positive)."
+            echo ""
+            echo "To fix this:"
+            echo "1. Add '$CLIENT_SUBDIR' to your antivirus exclusions/whitelist"
+            echo "2. Re-run this installer, or manually extract the client ZIP to:"
+            echo "   $CLIENT_SUBDIR"
+            echo ""
+            echo "The game may not launch correctly without this file!"
+            echo ""
+            read -p "Press Enter to acknowledge and continue..."
+        else
+            echo "All critical files verified!"
+        fi
     else
         echo "Error: unzip not found"
         exit 1
