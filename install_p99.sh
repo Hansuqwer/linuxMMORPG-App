@@ -11,18 +11,29 @@ set -e
 # Accept game_id parameter from installer (kept for compatibility)
 GAME_ID="${1:-everquest-p1999}"
 
+# Detect Downloads folder (handles different languages)
+DOWNLOADS_DIR="$HOME/Downloads"
+if [ -d "$HOME/Hämtningar" ]; then
+    DOWNLOADS_DIR="$HOME/Hämtningar"
+elif [ -d "$HOME/Téléchargements" ]; then
+    DOWNLOADS_DIR="$HOME/Téléchargements"
+elif [ -d "$HOME/Descargas" ]; then
+    DOWNLOADS_DIR="$HOME/Descargas"
+elif [ -d "$HOME/下载" ]; then
+    DOWNLOADS_DIR="$HOME/下载"
+fi
+
 TEMP_DIR="/tmp/p99_install"
 ISO_DIR="$TEMP_DIR/isos"
 MOUNT_BASE="$TEMP_DIR/mounts"
-TITANIUM_ZIP="$HOME/Hämtningar/EverQuest_Titanium.zip"
+TITANIUM_ZIP="$DOWNLOADS_DIR/EverQuest_Titanium.zip"
 REGISTRATION_URL="https://www.project1999.com/account/?Play"
 PATCH_FORUM_URL="https://www.project1999.com/forums/forumdisplay.php?f=11"
-DEFAULT_PATCH_DIRS=("$HOME/Hämtningar" "$HOME/Downloads" "$HOME/Download")
+DEFAULT_PATCH_DIRS=("$DOWNLOADS_DIR" "$HOME/Download" "$HOME")
 PATCH_PATTERNS=("P99Files" "Project1999Files")
 DRIVE_LETTERS=("d:" "e:" "f:" "g:" "h:")
 DEFAULT_TITANIUM_DIRS=(
-    "$HOME/Hämtningar"
-    "$HOME/Downloads"
+    "$DOWNLOADS_DIR"
     "$HOME/Download"
     "$HOME"
 )
@@ -267,16 +278,21 @@ mount_iso() {
 }
 
 detect_eq_dir() {
+    # Check standard locations without using slow find commands
     local default_dir="$WINEPREFIX/drive_c/EverQuest"
     if [ -d "$default_dir" ]; then
         echo "$default_dir"
         return 0
     fi
 
-    local discovered
-    discovered=$(find "$WINEPREFIX/drive_c" -maxdepth 2 -type d -iname "everquest" 2>/dev/null | head -n 1 || true)
-    if [ -n "$discovered" ]; then
-        echo "$discovered"
+    # Check Program Files locations
+    if [ -d "$WINEPREFIX/drive_c/Program Files/EverQuest" ]; then
+        echo "$WINEPREFIX/drive_c/Program Files/EverQuest"
+        return 0
+    fi
+
+    if [ -d "$WINEPREFIX/drive_c/Program Files (x86)/EverQuest" ]; then
+        echo "$WINEPREFIX/drive_c/Program Files (x86)/EverQuest"
         return 0
     fi
 
@@ -288,19 +304,27 @@ find_eqgame_exe() {
     local search_root="$1"
     local candidate=""
 
+    # Check common locations directly without slow find
+    if [ -f "$search_root/eqgame.exe" ]; then
+        echo "$search_root/eqgame.exe"
+        return 0
+    fi
+
+    if [ -f "$search_root/EQLite/eqgame.exe" ]; then
+        echo "$search_root/EQLite/eqgame.exe"
+        return 0
+    fi
+
+    # If not found, do a quick limited find in the EQ directory only
     if [ -d "$search_root" ]; then
-        candidate=$(find "$search_root" -maxdepth 2 -type f -iname "eqgame.exe" 2>/dev/null | head -n 1)
+        candidate=$(find "$search_root" -maxdepth 3 -type f -iname "eqgame.exe" 2>/dev/null | head -n 1)
+        if [ -n "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
     fi
 
-    if [ -z "$candidate" ]; then
-        candidate=$(find "$WINEPREFIX/drive_c" -maxdepth 5 -type f -iname "eqgame.exe" 2>/dev/null | grep -i "EverQuest" | head -n 1)
-    fi
-
-    if [ -z "$candidate" ]; then
-        candidate=$(find "$WINEPREFIX/drive_c" -maxdepth 5 -type f -iname "eqgame.exe" 2>/dev/null | head -n 1)
-    fi
-
-    echo "$candidate"
+    echo ""
 }
 
 echo "=== Project 1999 EverQuest Titanium Auto-Installer ==="
@@ -389,7 +413,7 @@ if [ "$SKIP_INSTALL" != "1" ]; then
             exit 1
         fi
 
-        mount_point="$MOUNT_BASE/cd-$i"
+        mount_point="$MOUNT_BASE/cd$i"
         echo "Mounting CD$i..."
         mount_iso "$iso_path" "$mount_point"
     done
@@ -402,7 +426,7 @@ if [ "$SKIP_INSTALL" != "1" ]; then
     for i in 1 2 3 4 5; do
         idx=$((i - 1))
         drive="${DRIVE_LETTERS[$idx]}"
-        mount_point="$MOUNT_BASE/cd-$i"
+        mount_point="$MOUNT_BASE/cd$i"
 
         rm -f "$WINEPREFIX/dosdevices/$drive"
         ln -s "$mount_point" "$WINEPREFIX/dosdevices/$drive"
@@ -411,18 +435,30 @@ if [ "$SKIP_INSTALL" != "1" ]; then
 
     echo ""
     echo "Step 5/6: Launching EverQuest Titanium installer..."
-    echo "IMPORTANT:"
-    echo "  • Install to C:\\EverQuest (NOT under Program Files)."
-    echo "  • When prompted for additional discs use the mounted drives:"
-    echo "      D: -> CD1, E: -> CD2, F: -> CD3, G: -> CD4, H: -> CD5"
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║                        IMPORTANT!                              ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  Install Location: C:\\EverQuest                               ║"
+    echo "║                                                                ║"
+    echo "║  DO NOT install to:                                            ║"
+    echo "║    - C:\\Program Files\\...                                    ║"
+    echo "║    - C:\\Program Files (x86)\\...                              ║"
+    echo "║                                                                ║"
+    echo "║  Use EXACTLY: C:\\EverQuest                                    ║"
+    echo "║                                                                ║"
+    echo "║  Mounted CD drives:                                            ║"
+    echo "║    D: -> CD1  |  E: -> CD2  |  F: -> CD3                       ║"
+    echo "║    G: -> CD4  |  H: -> CD5                                     ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     read -p "Press Enter to start setup.exe from CD1..."
 
-    (cd "$MOUNT_BASE/cd-1" && WINEPREFIX="$WINEPREFIX" PROTONPATH="$PROTONPATH" umu-run setup.exe)
+    (cd "$MOUNT_BASE/cd1" && WINEPREFIX="$WINEPREFIX" PROTONPATH="$PROTONPATH" umu-run setup.exe)
 
     echo ""
-    echo "Installation finished. Cleaning up mounted discs..."
-    cleanup_mounts
+    echo "Installation process completed. ISOs remain mounted for verification."
+    echo ""
+    read -p "Press Enter to continue to patch download..."
 else
     echo ""
     echo "Skip flag detected (SKIP_INSTALL=1). Reusing existing EverQuest installation."
