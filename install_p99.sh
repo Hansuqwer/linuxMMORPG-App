@@ -119,6 +119,13 @@ cp -r "$EQ_SOURCE"/* "$EQ_INSTALL_DIR/" 2>/dev/null || cp -r "$TEMP_DIR/eq_extra
 
 echo "Game files installed to: $EQ_INSTALL_DIR"
 
+# Remove conflicting Titanium files
+echo ""
+echo "Removing conflicting Titanium files for P99 compatibility..."
+cd "$EQ_INSTALL_DIR"
+rm -f arena.eqg arena_EnvironmentEmitters.txt lavastorm.eqg nektulos.eqg Nektulos_EnvironmentEmitters.txt
+echo "Conflicting files removed."
+
 # Step 4: Download and apply latest P99 patches
 echo ""
 echo "Step 4/5: Downloading latest P99 patch files..."
